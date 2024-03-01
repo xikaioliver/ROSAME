@@ -291,13 +291,13 @@ def run(
     if to_train:
         print(
             "Epoch {} TRAINING SET RESULTS: Average loss: {:.4f} Acc: {:.4f}".format(
-                epoch, loss_final, acc_final / data_num
+                epoch, loss_final, acc_running / data_num
             )
         )
     else:
         print(
             "Epoch {} TESTING SET RESULTS: Average loss: {:.4f} Acc: {:.4f}".format(
-                epoch, loss_final, acc_final / data_num
+                epoch, loss_final, acc_running / data_num
             )
         )
 
