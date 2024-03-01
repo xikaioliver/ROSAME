@@ -236,7 +236,7 @@ def run(
     device,
     to_train=False,
 ):
-    loss_final, acc_final = 0, 0
+    loss_final, acc_running, data_num = 0, 0, 0
 
     if to_train:
         cv_model.train()  # Set model to training mode
@@ -285,18 +285,19 @@ def run(
                 optimizer.step()
 
         loss_final += loss.item()
-        acc_final += compute_correctness(preds.data, label[:, :-1])
+        acc_running += compute_correctness(preds.data, label[:, :-1])
+        data_num += preds.data.shape[0]
 
     if to_train:
         print(
             "Epoch {} TRAINING SET RESULTS: Average loss: {:.4f} Acc: {:.4f}".format(
-                epoch, loss_final, acc_final / len(trainset)
+                epoch, loss_final, acc_final / data_num
             )
         )
     else:
         print(
             "Epoch {} TESTING SET RESULTS: Average loss: {:.4f} Acc: {:.4f}".format(
-                epoch, loss_final, acc_final / len(testset)
+                epoch, loss_final, acc_final / data_num
             )
         )
 
