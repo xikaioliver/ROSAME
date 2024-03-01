@@ -1,5 +1,5 @@
-from models.rosame import *
-from models.cv_gridworld import *
+from ROSAME.models.rosame import *
+from ROSAME.models.cv_gridworld import *
 
 import torch
 import torch.optim as optim
