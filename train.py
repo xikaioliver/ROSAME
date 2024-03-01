@@ -205,7 +205,7 @@ def get_gridworld_datasets(
 
 
 @torch.no_grad()
-def computeCorrectness(pred_flat, target_flat):
+def compute_correctness(pred_flat, target_flat):
     '''
     Expect input in the shape of (batch_size, trace_len, prop_num)
     '''
@@ -280,7 +280,7 @@ def run(
                 optimizer.step()
 
         loss_final += loss.item()
-        acc_final += computeCorrectness(preds.data, label[:, :-1])
+        acc_final += compute_correctness(preds.data, label[:, :-1])
 
     if to_train:
         print(

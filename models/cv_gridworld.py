@@ -10,7 +10,7 @@ class GridConv(nn.Module):
     """
 
     def __init__(self, digit_class_num, input_channel=1):
-        super(DigitConv, self).__init__()
+        super(GridConv, self).__init__()
         self.conv1 = nn.Conv2d(input_channel, 20, 5, 1)
         self.conv2 = nn.Conv2d(20, 50, 5, 1)
         self.fc1 = nn.Linear(4 * 4 * 50, 500)
@@ -31,7 +31,7 @@ class CVGrid(nn.Module):
     def __init__(
         self, grid_convnet, block_dim, block_size, hidden_dim, digit_class_num, prop_dim
     ):
-        super(Encoder, self).__init__()
+        super(CVGrid, self).__init__()
 
         self.block_dim = block_dim
         self.hidden_dim = hidden_dim
