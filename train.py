@@ -202,6 +202,7 @@ def get_gridworld_datasets(
 
     dataset = CustomDataset(Ximg, Y, actions, transform)
     trainset, testset = random_split(dataset, [train_frac, 1 - train_frac])
+    return trainset, testset
 
 
 @torch.no_grad()
