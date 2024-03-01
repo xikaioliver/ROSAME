@@ -216,8 +216,8 @@ def compute_correctness(pred_flat, target_flat):
     trace_len = pred_flat.shape[1]
     prop_num = pred_flat.shape[2]
 
-    pred = pred_flat.view(-1, prop_num)
-    target = target_flat.view(-1, prop_num)
+    pred = pred_flat.reshape(-1, prop_num)
+    target = target_flat.reshape(-1, prop_num)
     pred = (pred>0.5).float()
 
     correct = torch.sum(torch.isclose(pred, target))
