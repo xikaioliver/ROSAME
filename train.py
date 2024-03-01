@@ -194,7 +194,10 @@ def get_gridworld_datasets(
 ):
     with open(img_pth, "rb") as f:
         Ximg = torch.load(f)
-        Ximg = Ximg.float()
+        if Ximg.dim()==4:
+            Ximg = Ximg.unsqueeze(4).float()
+        else:
+            Ximg = Ximg.float()
     with open(label_pth, "rb") as f:
         Y = torch.load(f)
     with open(action_pth, "rb") as f:
