@@ -204,6 +204,23 @@ def get_gridworld_datasets(
     trainset, testset = random_split(dataset, [train_frac, 1 - train_frac])
 
 
+@torch.no_grad()
+def computeCorrectness(pred_flat, target_flat):
+    '''
+    Expect input in the shape of (batch_size, trace_len, prop_num)
+    '''
+    trace_len = pred_flat.shape[1]
+    prop_num = pred_flat.shape[2]
+
+    pred = pred_flat.view(-1, prop_num)
+    target = target_flat.view(-1, prop_num)
+    pred = (pred>0.5).float()
+
+    correct = torch.sum(torch.isclose(pred, target))
+
+    return float(correct)/prop_num/trace_len
+
+
 def run(
     epoch,
     cv_model,
@@ -263,9 +280,7 @@ def run(
                 optimizer.step()
 
         loss_final += loss.item()
-        acc_final += computeCorrectness(
-            preds.data, label[:, :-1].flatten(start_dim=0, end_dim=1)
-        )
+        acc_final += computeCorrectness(preds.data, label[:, :-1])
 
     if to_train:
         print(
