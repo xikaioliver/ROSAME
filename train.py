@@ -230,6 +230,7 @@ def run(
     data_loader,
     gamma,
     lambda_,
+    device,
     to_train=False,
 ):
     loss_final, acc_final = 0, 0
