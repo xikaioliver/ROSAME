@@ -5,6 +5,7 @@ import torch
 import torch.optim as optim
 
 from torch.utils.data import Dataset, DataLoader, random_split
+from torchvision import transforms
 
 import random
 
@@ -302,3 +303,126 @@ def run(
         )
 
     torch.cuda.empty_cache()
+
+
+if __name__ == "__main__":
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--domain", choice=["grid_block", "grid_gripper", "grid_logistics",
+                                            "synth_block", "synth_hanoi", "synth_slide"])
+    parser.add_argument("--gamma", type=float, default=10)
+    parser.add_argument("--lambda_", type=float, default=0.2)
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--lr_schema", type=float, default=1e-3)
+    parser.add_argument("--lr_gridcv_grid", type=float, default=1e-5)
+    parser.add_argument("--lr_gridcv_mlp", type=float, default=1e-3)
+    parser.add_argument("--lr_synth", type=float, default=1e-3)
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--trace_img_pth")
+    parser.add_argument("--trace_label_pth")
+    parser.add_argument("--trace_action_pth")
+    parser.add_argument("--dataset_pth")
+    parser.add_argument("--trace_num", type=int)
+    parser.add_argument("--trace_len", type=int)
+    parser.add_argument("--block_num", type=int, default=5)
+    parser.add_argument("--ball_num", type=int, default=6)
+    args = parser.parse_args()
+    
+    # Set up domain model and cv model.
+    # Gather experiment data.
+    if domain == "grid_block":
+        block_num = args.block_num
+        domain_model = get_domain_model_block(device)
+        cv_model = CVGrid(GridConv(digit_class_num=block_num+1, input_channel=1),
+                            block_dim=(block_num+1, block_num),
+                            block_size=28, #MNIST images are 28x28
+                            hidden_dim=128,
+                            digit_class_num=block_num+1,
+                            prop_dim=len(domain_model.propositions))
+        data_transform = RearrangeColumn(block_num)
+    elif domain == "grid_gripper":
+        ball_num = args.ball_num
+        domain_model = get_domain_model_gripper(device)
+        cv_model = CVGrid(GridConv(digit_class_num=(ball_num+1)*2, input_channel=1),
+                            block_dim=(4, ball_num),
+                            block_size=28, #MNIST images are 28x28
+                            hidden_dim=128,
+                            digit_class_num=(ball_num+1)*2,
+                            prop_dim=len(domain_model.propositions))
+        data_transform = RearrangeBalls(ball_num)
+    elif domain == "grid_logistics":
+        domain_model = get_domain_model_logistics(device)
+        digit_class_num = 35
+        cv_model = CVGrid(GridConv(digit_class_num=digit_class_num, input_channel=3),
+                            block_dim=(6, 6),
+                            block_size=28, #MNIST images are 28x28
+                            hidden_dim=256,
+                            digit_class_num=digit_class_num,
+                            prop_dim=len(domain_model.propositions))
+        data_transform = RearrangeItems()
+    elif domain == "synth_block":
+        domain_model = get_domain_model_block(device)
+        cv_model = torchvision.models.resnet18()
+        cv_model.fc = nn.Sequential(
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, len(domain_model.propositions))
+        )
+        data_transform = transforms.Compose([transforms.Resize(64),
+                                             transforms.RandomHorizontalFlip(0.5),])
+    elif domain == "synth_hanoi":
+        # WIP
+        domain_model = get_domain_model_hanoi(device)
+        cv_model = torchvision.models.resnet18()
+        cv_model.fc = nn.Sequential(
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, len(domain_model.propositions))
+        )
+        data_transform = transforms.Resize(64)
+    elif domain == "synth_slide":
+        # WIP
+        domain_model = get_domain_model_hanoi(device)
+        cv_model = torchvision.models.resnet18()
+        cv_model.fc = nn.Sequential(
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, len(domain_model.propositions))
+        )
+        data_transform = transforms.Resize(64)
+
+    domain_model = domain_model.to(device)
+    cv_model = cv_model.to(device)
+    
+    
+    # Get Dataset
+    if domain.startswith("grid"):
+        trainset, testset = get_gridworld_datasets(args.trace_img_pth, args.trace_label_pth, args.trace_action_pth,
+                                                   data_transform, 0.9, device)
+    else:
+        # WIP
+        dataset = TraceImageDataset(args.dataset_pth, args.trace_len, transforms =data_transform)
+        trainset, testset, _ = random_split(dataset, [args.trace_num, 100, len(dataset)-args.trace_num-100])
+        
+    train_loader = DataLoader(trainset, args.batch_size, shuffle=True)
+    test_loader = DataLoader(testset, args.batch_size, shuffle=True)
+    
+    # Create optimizer
+    parameters = []
+    for schema in domain_model.action_schemas:
+        parameters.append({'params': schema.parameters(), 'lr': lr_schema})
+    if domain.startswith("grid"):
+        parameters.extend([
+            {'params': cv_model.mlp.parameters(), 'lr': lr_gridcv_mlp},
+            {'params': cv_model.grid_convnet.parameters(), 'lr': lr_gridcv_grid},
+            ])
+    elif domain.startswith("synthesized"):
+        pass
+    optimizer = optim.Adam(parameters)
