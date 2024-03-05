@@ -317,7 +317,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr_schema", type=float, default=1e-3)
     parser.add_argument("--lr_gridcv_grid", type=float, default=1e-5)
     parser.add_argument("--lr_gridcv_mlp", type=float, default=1e-3)
-    parser.add_argument("--lr_synth", type=float, default=1e-3)
+    parser.add_argument("--lr_synthcv", type=float, default=1e-3)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--trace_img_pth")
     parser.add_argument("--trace_label_pth")
@@ -410,19 +410,29 @@ if __name__ == "__main__":
         # WIP
         dataset = TraceImageDataset(args.dataset_pth, args.trace_len, transforms =data_transform)
         trainset, testset, _ = random_split(dataset, [args.trace_num, 100, len(dataset)-args.trace_num-100])
-        
     train_loader = DataLoader(trainset, args.batch_size, shuffle=True)
     test_loader = DataLoader(testset, args.batch_size, shuffle=True)
     
     # Create optimizer
     parameters = []
     for schema in domain_model.action_schemas:
-        parameters.append({'params': schema.parameters(), 'lr': lr_schema})
+        parameters.append({'params': schema.parameters(), 'lr': args.lr_schema})
     if domain.startswith("grid"):
         parameters.extend([
-            {'params': cv_model.mlp.parameters(), 'lr': lr_gridcv_mlp},
-            {'params': cv_model.grid_convnet.parameters(), 'lr': lr_gridcv_grid},
+            {'params': cv_model.mlp.parameters(), 'lr': args.lr_gridcv_mlp},
+            {'params': cv_model.grid_convnet.parameters(), 'lr': args.lr_gridcv_grid},
             ])
-    elif domain.startswith("synthesized"):
-        pass
+    else:
+        parameters.extend([{'params': cv_model.parameters(), 'lr': args.lr_synthcv}])
     optimizer = optim.Adam(parameters)
+    
+    print("---------------------------------")
+    print("Domain:", domain)
+    print("Gamma:", gamma)
+    print("Lambda:", lambda_)
+    for epoch in range(epochs):
+        run(epoch, cv_model, domain_model, optimizer, train_loader, gamma, lambda_, device, True)
+        run(epoch, cv_model, domain_model, optimizer, test_loader, gamma, lambda_, device, False)
+    for schema in domain_model.action_schemas:
+        schema.pretty_print()
+        print()
