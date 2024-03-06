@@ -1,5 +1,5 @@
-from ROSAME.models.rosame import *
-from ROSAME.models.cv_gridworld import *
+from models.rosame import *
+from models.cv_gridworld import *
 
 import torch
 import torch.optim as optim
@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 
 import random
+import argparse
 
 
 def get_domain_model_block(device):
@@ -407,7 +408,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--domain",
-        choice=[
+        choices=[
             "grid_block",
             "grid_gripper",
             "grid_logistics",
