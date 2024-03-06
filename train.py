@@ -120,16 +120,17 @@ def get_domain_model_hanoi(device):
 
     domain_model = Domain_Model(
         [
-            Predicate('clear', {obj:1}),
-            Predicate('on', {obj:2}),
-            Predicate('smaller', {obj:2}),
+            Predicate("clear", {obj: 1}),
+            Predicate("on", {obj: 2}),
+            Predicate("smaller", {obj: 2}),
         ],
         [
-            Action_Schema('move', {obj:3}),
-        ]
-    , device=device)
+            Action_Schema("move", {obj: 3}),
+        ],
+        device=device,
+    )
 
-    objects = {obj: ['d1', 'd2', 'd3', 'd4', 'peg1', 'peg2', 'peg3']}
+    objects = {obj: ["d1", "d2", "d3", "d4", "peg1", "peg2", "peg3"]}
 
     domain_model.ground(objects)
     return domain_model
@@ -142,22 +143,23 @@ def get_domain_model_slide(device):
 
     domain_model = Domain_Model(
         [
-            Predicate('at', {tile:1, position:2}),
-            Predicate('blank', {position:2}),
-            Predicate('inc', {position:2}),
-            Predicate('dec', {position:2}),
+            Predicate("at", {tile: 1, position: 2}),
+            Predicate("blank", {position: 2}),
+            Predicate("inc", {position: 2}),
+            Predicate("dec", {position: 2}),
         ],
         [
-            Action_Schema('move-up', {tile:1, position:3}),
-            Action_Schema('move-down', {tile:1, position:3}),
-            Action_Schema('move-left', {tile:1, position:3}),
-            Action_Schema('move-right', {tile:1, position:3}),
-        ]
-    , device=device)
+            Action_Schema("move-up", {tile: 1, position: 3}),
+            Action_Schema("move-down", {tile: 1, position: 3}),
+            Action_Schema("move-left", {tile: 1, position: 3}),
+            Action_Schema("move-right", {tile: 1, position: 3}),
+        ],
+        device=device,
+    )
 
     objects = {
-        tile: ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'],
-        position: ['x1', 'x2', 'x3', 'y1', 'y2', 'y3'],
+        tile: ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"],
+        position: ["x1", "x2", "x3", "y1", "y2", "y3"],
     }
 
     domain_model.ground(objects)
@@ -244,36 +246,39 @@ class TraceImageDataset(Dataset):
         self.dataset_path = dataset_path
         self.step_length = step_length
         self.transforms = transforms
-        
-        if skip=="break_symmetry":
+
+        if skip == "break_symmetry":
             # Break symmetry based on whether the trace length is even or odd
             # Always skip at least one state
-            self.skip = 3-self.step_length%2
+            self.skip = 3 - self.step_length % 2
         else:
             self.skip = skip
 
-        with open(f'{dataset_path}/labels.pt', 'rb') as f:
+        with open(f"{dataset_path}/labels.pt", "rb") as f:
             self.labels = torch.load(f)
-        with open(f'{dataset_path}/actions.pt', 'rb') as f:
+        with open(f"{dataset_path}/actions.pt", "rb") as f:
             self.actions = torch.load(f)
 
     def __getname__(self, idx):
-        return f'{self.dataset_path}/{idx}.png'
+        return f"{self.dataset_path}/{idx}.png"
 
     def __len__(self):
-        return int(self.actions.shape[0]/(self.step_length+self.skip))
+        return int(self.actions.shape[0] / (self.step_length + self.skip))
 
     def __getitem__(self, idx):
         # For some reason we failed to save the first 10 images
-        starting_idx = idx * (self.step_length+self.skip)
+        starting_idx = idx * (self.step_length + self.skip)
         images = [
-            torchvision.io.read_image(self.__getname__(starting_idx+i), mode=torchvision.io.ImageReadMode.RGB)
+            torchvision.io.read_image(
+                self.__getname__(starting_idx + i),
+                mode=torchvision.io.ImageReadMode.RGB,
+            )
             for i in range(self.step_length)
         ]
         images = torch.stack(images, dim=0)
         images = images.float()
-        labels = self.labels[starting_idx : starting_idx+self.step_length+1]
-        actions = self.actions[starting_idx : starting_idx+self.step_length]
+        labels = self.labels[starting_idx : starting_idx + self.step_length + 1]
+        actions = self.actions[starting_idx : starting_idx + self.step_length]
 
         if self.transforms:
             images = self.transforms(images)
@@ -286,7 +291,7 @@ def get_gridworld_datasets(
 ):
     with open(img_pth, "rb") as f:
         Ximg = torch.load(f)
-        if Ximg.dim()==6:
+        if Ximg.dim() == 6:
             Ximg = Ximg.unsqueeze(4).float()
         else:
             Ximg = Ximg.float()
@@ -302,19 +307,19 @@ def get_gridworld_datasets(
 
 @torch.no_grad()
 def compute_correctness(pred_flat, target_flat):
-    '''
+    """
     Expect input in the shape of (batch_size, trace_len, prop_num)
-    '''
+    """
     trace_len = pred_flat.shape[1]
     prop_num = pred_flat.shape[2]
 
     pred = pred_flat.reshape(-1, prop_num)
     target = target_flat.reshape(-1, prop_num)
-    pred = (pred>0.5).float()
+    pred = (pred > 0.5).float()
 
     correct = torch.sum(torch.isclose(pred, target))
 
-    return float(correct)/prop_num/trace_len
+    return float(correct) / prop_num / trace_len
 
 
 def run(
@@ -398,10 +403,19 @@ def run(
 
 if __name__ == "__main__":
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--domain", choice=["grid_block", "grid_gripper", "grid_logistics",
-                                            "synth_block", "synth_hanoi", "synth_slide"])
+    parser.add_argument(
+        "--domain",
+        choice=[
+            "grid_block",
+            "grid_gripper",
+            "grid_logistics",
+            "synth_block",
+            "synth_hanoi",
+            "synth_slide",
+        ],
+    )
     parser.add_argument("--gamma", type=float, default=10)
     parser.add_argument("--lambda_", type=float, default=0.2)
     parser.add_argument("--epochs", type=int, default=100)
@@ -420,41 +434,47 @@ if __name__ == "__main__":
     parser.add_argument("--ball_num", type=int, default=6)
     parser.add_argument("--seed", type=int, default=8800)
     args = parser.parse_args()
-    
+
     random.seed(args.seed)
     torch.manual_seed(args.seed)
-    
+
     # Set up domain model and cv model.
     # Gather experiment data.
     if domain == "grid_block":
         block_num = args.block_num
         domain_model = get_domain_model_block(device)
-        cv_model = CVGrid(GridConv(digit_class_num=block_num+1, input_channel=1),
-                            block_dim=(block_num+1, block_num),
-                            block_size=28, #MNIST images are 28x28
-                            hidden_dim=128,
-                            digit_class_num=block_num+1,
-                            prop_dim=len(domain_model.propositions))
+        cv_model = CVGrid(
+            GridConv(digit_class_num=block_num + 1, input_channel=1),
+            block_dim=(block_num + 1, block_num),
+            block_size=28,  # MNIST images are 28x28
+            hidden_dim=128,
+            digit_class_num=block_num + 1,
+            prop_dim=len(domain_model.propositions),
+        )
         data_transform = RearrangeColumn(block_num)
     elif domain == "grid_gripper":
         ball_num = args.ball_num
         domain_model = get_domain_model_gripper(device)
-        cv_model = CVGrid(GridConv(digit_class_num=(ball_num+1)*2, input_channel=1),
-                            block_dim=(4, ball_num),
-                            block_size=28, #MNIST images are 28x28
-                            hidden_dim=128,
-                            digit_class_num=(ball_num+1)*2,
-                            prop_dim=len(domain_model.propositions))
+        cv_model = CVGrid(
+            GridConv(digit_class_num=(ball_num + 1) * 2, input_channel=1),
+            block_dim=(4, ball_num),
+            block_size=28,  # MNIST images are 28x28
+            hidden_dim=128,
+            digit_class_num=(ball_num + 1) * 2,
+            prop_dim=len(domain_model.propositions),
+        )
         data_transform = RearrangeBalls(ball_num)
     elif domain == "grid_logistics":
         domain_model = get_domain_model_logistics(device)
         digit_class_num = 35
-        cv_model = CVGrid(GridConv(digit_class_num=digit_class_num, input_channel=3),
-                            block_dim=(6, 6),
-                            block_size=28, #MNIST images are 28x28
-                            hidden_dim=256,
-                            digit_class_num=digit_class_num,
-                            prop_dim=len(domain_model.propositions))
+        cv_model = CVGrid(
+            GridConv(digit_class_num=digit_class_num, input_channel=3),
+            block_dim=(6, 6),
+            block_size=28,  # MNIST images are 28x28
+            hidden_dim=256,
+            digit_class_num=digit_class_num,
+            prop_dim=len(domain_model.propositions),
+        )
         data_transform = RearrangeItems()
     elif domain == "synth_block":
         domain_model = get_domain_model_block(device)
@@ -464,10 +484,14 @@ if __name__ == "__main__":
             nn.ReLU(),
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, len(domain_model.propositions))
+            nn.Linear(256, len(domain_model.propositions)),
         )
-        data_transform = transforms.Compose([transforms.Resize(64),
-                                             transforms.RandomHorizontalFlip(0.5),])
+        data_transform = transforms.Compose(
+            [
+                transforms.Resize(64),
+                transforms.RandomHorizontalFlip(0.5),
+            ]
+        )
     elif domain == "synth_hanoi":
         domain_model = get_domain_model_hanoi(device)
         cv_model = torchvision.models.resnet18()
@@ -476,7 +500,7 @@ if __name__ == "__main__":
             nn.ReLU(),
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, len(domain_model.propositions))
+            nn.Linear(256, len(domain_model.propositions)),
         )
         data_transform = transforms.Resize(64)
     elif domain == "synth_slide":
@@ -487,44 +511,79 @@ if __name__ == "__main__":
             nn.ReLU(),
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, len(domain_model.propositions))
+            nn.Linear(256, len(domain_model.propositions)),
         )
         data_transform = transforms.Resize(64)
 
     domain_model = domain_model.to(device)
-    cv_model = cv_model.to(device)    
-    
+    cv_model = cv_model.to(device)
+
     # Get Dataset
     if domain.startswith("grid"):
-        trainset, testset = get_gridworld_datasets(args.trace_img_pth, args.trace_label_pth, args.trace_action_pth,
-                                                   data_transform, 0.9, device)
+        trainset, testset = get_gridworld_datasets(
+            args.trace_img_pth,
+            args.trace_label_pth,
+            args.trace_action_pth,
+            data_transform,
+            0.9,
+            device,
+        )
     else:
-        skip = "break_symmetry" if domain=="synth_block" else 1
-        dataset = TraceImageDataset(args.dataset_pth, args.trace_len, skip, transforms =data_transform)
-        trainset, testset, _ = random_split(dataset, [args.trace_num, 100, len(dataset)-args.trace_num-100])
+        skip = "break_symmetry" if domain == "synth_block" else 1
+        dataset = TraceImageDataset(
+            args.dataset_pth, args.trace_len, skip, transforms=data_transform
+        )
+        trainset, testset, _ = random_split(
+            dataset, [args.trace_num, 100, len(dataset) - args.trace_num - 100]
+        )
     train_loader = DataLoader(trainset, args.batch_size, shuffle=True)
     test_loader = DataLoader(testset, args.batch_size, shuffle=True)
-    
+
     # Create optimizer
     parameters = []
     for schema in domain_model.action_schemas:
-        parameters.append({'params': schema.parameters(), 'lr': args.lr_schema})
+        parameters.append({"params": schema.parameters(), "lr": args.lr_schema})
     if domain.startswith("grid"):
-        parameters.extend([
-            {'params': cv_model.mlp.parameters(), 'lr': args.lr_gridcv_mlp},
-            {'params': cv_model.grid_convnet.parameters(), 'lr': args.lr_gridcv_grid},
-            ])
+        parameters.extend(
+            [
+                {"params": cv_model.mlp.parameters(), "lr": args.lr_gridcv_mlp},
+                {
+                    "params": cv_model.grid_convnet.parameters(),
+                    "lr": args.lr_gridcv_grid,
+                },
+            ]
+        )
     else:
-        parameters.extend([{'params': cv_model.parameters(), 'lr': args.lr_synthcv}])
+        parameters.extend([{"params": cv_model.parameters(), "lr": args.lr_synthcv}])
     optimizer = optim.Adam(parameters)
-    
+
     print("---------------------------------")
     print("Domain:", domain)
     print("Gamma:", gamma)
     print("Lambda:", lambda_)
     for epoch in range(epochs):
-        run(epoch, cv_model, domain_model, optimizer, train_loader, gamma, lambda_, device, True)
-        run(epoch, cv_model, domain_model, optimizer, test_loader, gamma, lambda_, device, False)
+        run(
+            epoch,
+            cv_model,
+            domain_model,
+            optimizer,
+            train_loader,
+            gamma,
+            lambda_,
+            device,
+            True,
+        )
+        run(
+            epoch,
+            cv_model,
+            domain_model,
+            optimizer,
+            test_loader,
+            gamma,
+            lambda_,
+            device,
+            False,
+        )
     for schema in domain_model.action_schemas:
         schema.pretty_print()
         print()
