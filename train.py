@@ -439,6 +439,8 @@ if __name__ == "__main__":
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
+    domain = args.domain
+
     # Set up domain model and cv model.
     # Gather experiment data.
     if domain == "grid_block":
