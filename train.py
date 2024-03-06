@@ -6,6 +6,7 @@ import torch.optim as optim
 
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
+import torchvision
 
 import random
 import argparse
