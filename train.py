@@ -440,11 +440,9 @@ if __name__ == "__main__":
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    domain = args.domain
-
     # Set up domain model and cv model.
     # Gather experiment data.
-    if domain == "grid_block":
+    if args.domain == "grid_block":
         block_num = args.block_num
         domain_model = get_domain_model_block(device)
         cv_model = CVGrid(
@@ -456,7 +454,7 @@ if __name__ == "__main__":
             prop_dim=len(domain_model.propositions),
         )
         data_transform = RearrangeColumn(block_num)
-    elif domain == "grid_gripper":
+    elif args.domain == "grid_gripper":
         ball_num = args.ball_num
         domain_model = get_domain_model_gripper(device)
         cv_model = CVGrid(
@@ -468,7 +466,7 @@ if __name__ == "__main__":
             prop_dim=len(domain_model.propositions),
         )
         data_transform = RearrangeBalls(ball_num)
-    elif domain == "grid_logistics":
+    elif args.domain == "grid_logistics":
         domain_model = get_domain_model_logistics(device)
         digit_class_num = 35
         cv_model = CVGrid(
@@ -480,7 +478,7 @@ if __name__ == "__main__":
             prop_dim=len(domain_model.propositions),
         )
         data_transform = RearrangeItems()
-    elif domain == "synth_block":
+    elif args.domain == "synth_block":
         domain_model = get_domain_model_block(device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
@@ -496,7 +494,7 @@ if __name__ == "__main__":
                 transforms.RandomHorizontalFlip(0.5),
             ]
         )
-    elif domain == "synth_hanoi":
+    elif args.domain == "synth_hanoi":
         domain_model = get_domain_model_hanoi(device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
@@ -507,7 +505,7 @@ if __name__ == "__main__":
             nn.Linear(256, len(domain_model.propositions)),
         )
         data_transform = transforms.Resize(64)
-    elif domain == "synth_slide":
+    elif args.domain == "synth_slide":
         domain_model = get_domain_model_slide(device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
@@ -523,7 +521,7 @@ if __name__ == "__main__":
     cv_model = cv_model.to(device)
 
     # Get Dataset
-    if domain.startswith("grid"):
+    if args.domain.startswith("grid"):
         trainset, testset = get_gridworld_datasets(
             args.trace_img_pth,
             args.trace_label_pth,
@@ -533,7 +531,7 @@ if __name__ == "__main__":
             device,
         )
     else:
-        skip = "break_symmetry" if domain == "synth_block" else 1
+        skip = "break_symmetry" if args.domain == "synth_block" else 1
         dataset = TraceImageDataset(
             args.dataset_pth, args.trace_len, skip, transforms=data_transform
         )
@@ -547,7 +545,7 @@ if __name__ == "__main__":
     parameters = []
     for schema in domain_model.action_schemas:
         parameters.append({"params": schema.parameters(), "lr": args.lr_schema})
-    if domain.startswith("grid"):
+    if args.domain.startswith("grid"):
         parameters.extend(
             [
                 {"params": cv_model.mlp.parameters(), "lr": args.lr_gridcv_mlp},
@@ -562,9 +560,9 @@ if __name__ == "__main__":
     optimizer = optim.Adam(parameters)
 
     print("---------------------------------")
-    print("Domain:", domain)
-    print("Gamma:", gamma)
-    print("Lambda:", lambda_)
+    print("Domain:", args.domain)
+    print("Gamma:", args.gamma)
+    print("Lambda:", args.lambda_)
     for epoch in range(epochs):
         run(
             epoch,
@@ -572,8 +570,8 @@ if __name__ == "__main__":
             domain_model,
             optimizer,
             train_loader,
-            gamma,
-            lambda_,
+            args.gamma,
+            args.lambda_,
             device,
             True,
         )
@@ -583,8 +581,8 @@ if __name__ == "__main__":
             domain_model,
             optimizer,
             test_loader,
-            gamma,
-            lambda_,
+            args.gamma,
+            args.lambda_,
             device,
             False,
         )
