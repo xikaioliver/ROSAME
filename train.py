@@ -563,7 +563,7 @@ if __name__ == "__main__":
     print("Domain:", args.domain)
     print("Gamma:", args.gamma)
     print("Lambda:", args.lambda_)
-    for epoch in range(epochs):
+    for epoch in range(args.epochs):
         run(
             epoch,
             cv_model,
