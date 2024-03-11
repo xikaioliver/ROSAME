@@ -384,8 +384,9 @@ if __name__ == "__main__":
         dataset = GridDataset(
             args.dataset_pth, args.trace_len, transforms=data_transform
         )
+        training_size = int(args.trace_num*0.9)
         trainset, testset, _ = random_split(
-            dataset, [args.trace_num*0.9, args.trace_num*0.1, len(dataset) - args.trace_num]
+            dataset, [training_size, args.trace_num-training_size, len(dataset)-args.trace_num]
         )
     else:
         skip = "break_symmetry" if args.domain == "synth_block" else 1
@@ -393,7 +394,7 @@ if __name__ == "__main__":
             args.dataset_pth, args.trace_len, skip, transforms=data_transform
         )
         trainset, testset, _ = random_split(
-            dataset, [args.trace_num, 100, len(dataset) - args.trace_num - 100]
+            dataset, [args.trace_num, 100, len(dataset)-rgs.trace_num-100]
         )
     train_loader = DataLoader(trainset, args.batch_size, shuffle=True)
     test_loader = DataLoader(testset, args.batch_size, shuffle=True)
