@@ -77,6 +77,10 @@ class GridDataset(Dataset):
         with open(f"{dataset_path}/actions.pt", "rb") as f:
             self.actions = torch.load(f)
 
+        self.images = self.images[:, :self.step_length]
+        self.labels = self.labels[:, :self.step_length+1]
+        self.actions = self.actions[:, :self.step_length]
+
     def __getitem__(self, index):
         img = self.images[index]
         label = self.labels[index]
