@@ -1,5 +1,6 @@
 from models.rosame import *
 from models.cv_gridworld import *
+from data.dataset import *
 
 import torch
 import torch.optim as optim
@@ -168,145 +169,6 @@ def get_domain_model_slide(device):
     return domain_model
 
 
-class RearrangeColumn(object):
-    def __init__(self, column_num):
-        self.column_num = column_num
-
-    def __call__(self, img):
-        idx = torch.randperm(self.column_num)
-        return torch.cat((img[:, [0]], img[:, 1:, idx]), 1)
-
-
-class RearrangeBalls(object):
-    def __init__(self, column_num):
-        self.column_num = column_num
-
-    def __call__(self, img):
-        # img is steps * row * column * 28 * 28
-        idx1 = torch.randperm(self.column_num)
-        idx2 = torch.randperm(self.column_num)
-        return torch.cat(
-            (
-                img[:, [0]],
-                img[:, [1], idx1].unsqueeze(1),
-                img[:, [2]],
-                img[:, [3], idx2].unsqueeze(1),
-            ),
-            1,
-        )
-
-
-class RearrangeItems(object):
-    def __call__(self, img):
-        # img is steps * row * column * 3 * 28 * 28
-        indices = [
-            [
-                [
-                    (r, c)
-                    for r in range(i * 3, i * 3 + 3)
-                    for c in range(j * 3, j * 3 + 3)
-                ]
-                for j in range(2)
-            ]
-            for i in range(2)
-        ]
-        for i in range(2):
-            for j in range(2):
-                random.shuffle(indices[i][j])
-        rows = []
-        columns = []
-        for r in range(6):
-            for c in range(6):
-                idx = indices[int(r / 3)][int(c / 3)].pop(0)
-                rows.append(idx[0])
-                columns.append(idx[1])
-        return img[:, rows, columns, :, :, :].unflatten(1, (6, 6))
-
-
-class CustomDataset(Dataset):
-    def __init__(self, images, labels, actions, transform=None):
-        self.images = images
-        self.labels = labels
-        self.actions = actions
-        self.transform = transform
-
-    def __getitem__(self, index):
-        img = self.images[index]
-        label = self.labels[index]
-        action = self.actions[index]
-
-        if self.transform is not None:
-            img = self.transform(img)
-        return img, label, action
-
-    def __len__(self):
-        return len(self.images)
-
-
-class TraceImageDataset(Dataset):
-    def __init__(self, dataset_path, step_length, skip=1, transforms=None):
-        self.dataset_path = dataset_path
-        self.step_length = step_length
-        self.transforms = transforms
-
-        if skip == "break_symmetry":
-            # Break symmetry based on whether the trace length is even or odd
-            # Always skip at least one state
-            self.skip = 3 - self.step_length % 2
-        else:
-            self.skip = skip
-
-        with open(f"{dataset_path}/labels.pt", "rb") as f:
-            self.labels = torch.load(f)
-        with open(f"{dataset_path}/actions.pt", "rb") as f:
-            self.actions = torch.load(f)
-
-    def __getname__(self, idx):
-        return f"{self.dataset_path}/{idx}.png"
-
-    def __len__(self):
-        return int(self.actions.shape[0] / (self.step_length + self.skip))
-
-    def __getitem__(self, idx):
-        # For some reason we failed to save the first 10 images
-        starting_idx = idx * (self.step_length + self.skip)
-        images = [
-            torchvision.io.read_image(
-                self.__getname__(starting_idx + i),
-                mode=torchvision.io.ImageReadMode.RGB,
-            )
-            for i in range(self.step_length)
-        ]
-        images = torch.stack(images, dim=0)
-        images = images.float()
-        labels = self.labels[starting_idx : starting_idx + self.step_length + 1]
-        actions = self.actions[starting_idx : starting_idx + self.step_length]
-
-        if self.transforms:
-            images = self.transforms(images)
-
-        return images, labels, actions
-
-
-def get_gridworld_datasets(
-    img_pth, label_pth, action_pth, transform, train_frac, device
-):
-    with open(img_pth, "rb") as f:
-        Ximg = torch.load(f)
-        if Ximg.dim() == 6:
-            Ximg = Ximg.unsqueeze(4).float()
-        else:
-            Ximg = Ximg.float()
-    with open(label_pth, "rb") as f:
-        Y = torch.load(f)
-    with open(action_pth, "rb") as f:
-        actions = torch.load(f)
-
-    dataset = CustomDataset(Ximg, Y, actions, transform)
-    trainset, testset = random_split(dataset, [train_frac, 1 - train_frac])
-    return trainset, testset
-
-
 @torch.no_grad()
 def compute_correctness(pred_flat, target_flat):
     """
@@ -426,9 +288,6 @@ if __name__ == "__main__":
     parser.add_argument("--lr_gridcv_mlp", type=float, default=1e-3)
     parser.add_argument("--lr_synthcv", type=float, default=1e-3)
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--trace_img_pth")
-    parser.add_argument("--trace_label_pth")
-    parser.add_argument("--trace_action_pth")
     parser.add_argument("--dataset_pth")
     parser.add_argument("--trace_num", type=int)
     parser.add_argument("--trace_len", type=int)
@@ -522,17 +381,15 @@ if __name__ == "__main__":
 
     # Get Dataset
     if args.domain.startswith("grid"):
-        trainset, testset = get_gridworld_datasets(
-            args.trace_img_pth,
-            args.trace_label_pth,
-            args.trace_action_pth,
-            data_transform,
-            0.9,
-            device,
+        dataset = GridDataset(
+            args.dataset_pth, args.trace_len, skip, transforms=data_transform
+        )
+        trainset, testset, _ = random_split(
+            dataset, [args.trace_num*0.9, args.trace_num*0.1, len(dataset) - args.trace_num]
         )
     else:
         skip = "break_symmetry" if args.domain == "synth_block" else 1
-        dataset = TraceImageDataset(
+        dataset = SynthDataset(
             args.dataset_pth, args.trace_len, skip, transforms=data_transform
         )
         trainset, testset, _ = random_split(
