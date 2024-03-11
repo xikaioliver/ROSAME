@@ -420,6 +420,8 @@ if __name__ == "__main__":
     print("Domain:", args.domain)
     print("Gamma:", args.gamma)
     print("Lambda:", args.lambda_)
+    print("Trace Num:", args.trace_num)
+    print("Trace Len:", args.trace_len)
     for epoch in range(args.epochs):
         run(
             epoch,
