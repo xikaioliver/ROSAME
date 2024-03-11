@@ -260,6 +260,11 @@ def state_to_label(state):
         elif f.name=='in-city':
             f_string = f'in-city city {serialized_list[4]} location {serialized_list[2]}'
         label[model.propositions[f_string]] = state.fluents[f]
+    # macq does not recognise static propositions as fluents
+    label[model.propositions["in-city city city1 location city1-1"]]
+    label[model.propositions["in-city city city1 location city1-2"]]
+    label[model.propositions["in-city city city2 location city2-1"]]
+    label[model.propositions["in-city city city2 location city2-2"]]
     return label
 
 
@@ -336,6 +341,6 @@ if __name__ == "__main__":
     traces_actions_tensor = torch.tensor(np.array(traces_actions))
     traces_labels_tensor = torch.tensor(np.array(traces_labels), dtype=torch.float32)
 
-    torch.save(traces_images_tensor, os.path.join(save_to, "features_img.pt"))
-    torch.save(traces_actions_tensor, os.path.join(save_to, "actions.pt"))
-    torch.save(traces_labels_tensor, os.path.join(save_to, "labels.pt"))
+    torch.save(traces_images_tensor, os.path.join(args.s, "features_img.pt"))
+    torch.save(traces_actions_tensor, os.path.join(args.s, "actions.pt"))
+    torch.save(traces_labels_tensor, os.path.join(args.s, "labels.pt"))
