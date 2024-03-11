@@ -382,7 +382,7 @@ if __name__ == "__main__":
     # Get Dataset
     if args.domain.startswith("grid"):
         dataset = GridDataset(
-            args.dataset_pth, args.trace_len, skip, transforms=data_transform
+            args.dataset_pth, args.trace_len, transforms=data_transform
         )
         trainset, testset, _ = random_split(
             dataset, [args.trace_num*0.9, args.trace_num*0.1, len(dataset) - args.trace_num]
