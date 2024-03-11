@@ -181,7 +181,7 @@ if __name__ == "__main__":
             img, meta = get_next_img(img, meta, trace.steps[step].action)
         
         # Record final state label
-        trace_labels.append(state_to_label(trace.steps[n*5+5].state))
+        trace_labels.append(state_to_label(trace.steps[n*(args.l+args.skip)+args.l].state))
         
         traces_images.append(trace_images)
         traces_actions.append(trace_actions)
