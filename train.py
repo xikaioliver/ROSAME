@@ -394,7 +394,7 @@ if __name__ == "__main__":
             args.dataset_pth, args.trace_len, skip, transforms=data_transform
         )
         trainset, testset, _ = random_split(
-            dataset, [args.trace_num, 100, len(dataset)-rgs.trace_num-100]
+            dataset, [args.trace_num, 100, len(dataset)-args.trace_num-100]
         )
     train_loader = DataLoader(trainset, args.batch_size, shuffle=True)
     test_loader = DataLoader(testset, args.batch_size, shuffle=True)
