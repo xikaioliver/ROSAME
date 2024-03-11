@@ -210,7 +210,12 @@ if __name__ == "__main__":
     parser.add_argument("-l", type=int, default=10, help="trace length")
     parser.add_argument("-s", default="data", help="save address")
     parser.add_argument("-g", default="blocks-world-generator-and-planner/bbwstates_src/bbwstates", help="initial state generator")
+    parser.add_argument("--seed", type=int, default=8800)
     args = parser.parse_args()
+
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    npr.seed(args.seed)
 
     obj_num = args.o
     state_num = args.t

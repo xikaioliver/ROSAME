@@ -145,7 +145,11 @@ if __name__ == "__main__":
     parser.add_argument("-s", default="data", help="save address")
     parser.add_argument("--pddl_dom", default="./pddl/gripper/domain.pddl")
     parser.add_argument("--pddl_prob", default="./pddl/gripper/prob01.pddl")
+    parser.add_argument("--seed", type=int, default=8800)
     args = parser.parse_args()
+
+    torch.manual_seed(args.seed)
+    npr.seed(args.seed)
 
     # Grid shape: 2*room_num, ball_num(>=2)
     grid_shape = (2*len(args.rooms), args.b)

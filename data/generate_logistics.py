@@ -5,6 +5,11 @@ import torch
 import torchvision
 import matplotlib.pyplot as plt
 from macq import generate, extract
+import sys
+import argparse
+import os
+
+sys.path.append("..")
 from models.rosame import *
 
 
@@ -21,6 +26,7 @@ palette = {
 
 
 def init_mnist():
+    global eminst_dataset, target_index
     eminst_dataset = torchvision.datasets.EMNIST(root='./data',
                                                  split='balanced',
                                                  train=True,
@@ -226,7 +232,7 @@ def get_domain_model_and_actions(device):
     domain_model.ground(objects)
 
     all_grounded_actions = {}
-    for action_schema in model.action_schemas:
+    for action_schema in domain_model.action_schemas:
         obj_lists_per_params = {params_type:[] for params_type in action_schema.params_types}
         for params_type in action_schema.params_types:
             for obj_type in objects.keys():
@@ -259,12 +265,18 @@ def state_to_label(state):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", type=int, default=1000, help="trace num")
-    parser.add_argument("-l", type=int, default=5, help="trace length")
+    parser.add_argument("-t", type=int, default=3000, help="trace num")
+    parser.add_argument("-l", type=int, default=10, help="trace length")
     parser.add_argument("--skip", type=int, default=1, help="skip between traces")
     parser.add_argument("-s", default="data", help="save address")
     parser.add_argument("--pddl_dom", default="./pddl/logistics/domain.pddl")
     parser.add_argument("--pddl_prob", default="./pddl/logistics/prob01.pddl")
+    parser.add_argument("--seed", type=int, default=8800)
+    args = parser.parse_args()
+
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    npr.seed(args.seed)
 
     # Hardcode for now
     grid_shape = (6, 6)
@@ -283,7 +295,7 @@ if __name__ == "__main__":
 
     trace = generate.pddl.VanillaSampling(dom=args.pddl_dom,
                                       prob=args.pddl_prob,
-                                      plan_len = args.t*(args.l+args.skip), num_traces = 1).traces[0]
+                                      plan_len = args.t*(args.l+args.skip), num_traces = 1, max_time=120).traces[0]
     all_fluents = {f._serialize():f for f in trace.fluents}
 
     init_mnist()
