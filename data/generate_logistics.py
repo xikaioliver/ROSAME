@@ -261,10 +261,10 @@ def state_to_label(state):
             f_string = f'in-city city {serialized_list[4]} location {serialized_list[2]}'
         label[model.propositions[f_string]] = state.fluents[f]
     # macq does not recognise static propositions as fluents
-    label[model.propositions["in-city city city1 location city1-1"]]
-    label[model.propositions["in-city city city1 location city1-2"]]
-    label[model.propositions["in-city city city2 location city2-1"]]
-    label[model.propositions["in-city city city2 location city2-2"]]
+    label[model.propositions["in-city city city1 location city1-1"]] = 1
+    label[model.propositions["in-city city city1 location city1-2"]] = 1
+    label[model.propositions["in-city city city2 location city2-1"]] = 1
+    label[model.propositions["in-city city city2 location city2-2"]] = 1
     return label
 
 
