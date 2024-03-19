@@ -1,20 +1,12 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 import itertools
 import math
 import string
-
-
-# # First-order Methods
-
-# In[2]:
+import json
+from json import JSONEncoder
 
 
 class Type:
@@ -29,9 +21,6 @@ class Type:
             return False
         else:
             return self.parent.is_child(another_type)
-
-
-# In[3]:
 
 
 class Predicate:
@@ -60,22 +49,6 @@ class Predicate:
                                         for params_type in self.params_types]):
       propositions.append(self.proposition(obj_lists))
     return propositions
-    
-  def ground_num(self, objects):
-    '''
-    Return how many propositions this predicate can ground on the objects
-    '''
-    n_ground = 1
-    for params_type in self.params_types:
-      n_obj = 0
-      for obj_type in objects.keys():
-        if obj_type.is_child(params_type):
-          n_obj += len(objects[obj_type])
-      n_ground *= math.perm(n_obj, self.params[params_type])
-    return n_ground
-
-
-# In[45]:
 
 
 class Action_Schema(nn.Module):
@@ -181,12 +154,10 @@ class Action_Schema(nn.Module):
     print(', '.join(deleff_list))
 
 
-# In[46]:
-
-
 class Domain_Model(nn.Module):
-  def __init__(self, predicates, action_schemas, device):
+  def __init__(self, types, predicates, action_schemas, device):
     super(Domain_Model, self).__init__()
+    self.types = types
     self.predicates = predicates
     self.action_schemas = action_schemas
     self.device = device
@@ -251,3 +222,15 @@ class Domain_Model(nn.Module):
         addeff[x_indices, y_indices] += schema_addeff
         deleff[x_indices, y_indices] += schema_deleff
     return precon, addeff, deleff
+
+
+class DomainModelEncoder(JSONEncoder):
+  def default(self, o):
+    if isinstance(o, Type):
+      return {"name": o.name, "parent": o.parent}
+    elif isinstance(o, Predicate) or isinstance(o, Action_Schema):
+      return {"name": o.name, "params": {param.name:num for param, num in o.params.items()}}
+    elif isinstance(o, Domain_Model):
+      return {"types": o.types, "predicates": o.predicates, "action_schemas": o.action_schemas}
+    else:
+      return o.__dict__
