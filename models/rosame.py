@@ -63,7 +63,7 @@ class Action_Schema(nn.Module):
 
   def initialise(self, predicates, device):
     '''
-    Input all predicates and generate the model for action schema
+    Input all predicates and generate the deep learning model for the action schema
     '''
     n_features = 0
     for predicate in predicates:
@@ -224,6 +224,20 @@ class Domain_Model(nn.Module):
     return precon, addeff, deleff
 
 
+  @staticmethod
+  def create_from_json(json_dict, device):
+    type_dict = {}
+    predicates = []
+    action_schemas = []
+    for t in json_dict["types"]:
+      type_dict[t["name"]] = Type(t["name"], t["parent"])
+    for p in json_dict["predicates"]:
+      predicates.append(Predicate(p["name"], {type_dict[param]:num for param, num in p["params"].items()}))
+    for a in json_dict["action_schemas"]:
+      action_schemas.append(Action_Schema(a["name"], {type_dict[param]:num for param, num in a["params"].items()}))
+    return Domain_Model(list(type_dict.values()), predicates, action_schemas, device)
+
+
 class DomainModelEncoder(JSONEncoder):
   def default(self, o):
     if isinstance(o, Type):
@@ -234,3 +248,14 @@ class DomainModelEncoder(JSONEncoder):
       return {"types": o.types, "predicates": o.predicates, "action_schemas": o.action_schemas}
     else:
       return o.__dict__
+
+
+def dump_model(domain_model, file_pth):
+  with open(file_pth, "w") as f:
+    f.write(json.dumps(domain_model, cls=DomainModelEncoder, indent=4))
+
+
+def load_model(file_pth, device):
+  with open(file_pth, "r") as f:
+    domain_model = Domain_Model.create_from_json(json.load(f), device)
+  return domain_model
