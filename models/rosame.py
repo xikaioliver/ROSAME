@@ -281,7 +281,7 @@ class Domain_Model(nn.Module):
         predicates = []
         action_schemas = []
         for t in json_dict["types"]:
-            type_dict[t["name"]] = Type(t["name"], t["parent"])
+            type_dict[t["name"]] = Type(t["name"], type_dict.get(t["parent"]))
         for p in json_dict["predicates"]:
             predicates.append(
                 Predicate(
@@ -315,7 +315,7 @@ class Domain_Model(nn.Module):
 class DomainModelEncoder(JSONEncoder):
     def default(self, o):
         if isinstance(o, Type):
-            return {"name": o.name, "parent": o.parent}
+            return {"name": o.name, "parent": o.parent.name if o.parent is not None else None}
         elif isinstance(o, Predicate) or isinstance(o, Action_Schema):
             return {
                 "name": o.name,
