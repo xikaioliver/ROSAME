@@ -11,161 +11,12 @@ import torchvision
 
 import random
 import argparse
+import os
 
 
-def get_domain_model_block(device):
-    obj = Type("object", None)
-
-    domain_model = Domain_Model(
-        [
-            Predicate("arm-empty", {}),
-            Predicate("clear", {obj: 1}),
-            Predicate("on-table", {obj: 1}),
-            Predicate("holding", {obj: 1}),
-            Predicate("on", {obj: 2}),
-        ],
-        [
-            Action_Schema("pickup", {obj: 1}),
-            Action_Schema("putdown", {obj: 1}),
-            Action_Schema("stack", {obj: 2}),
-            Action_Schema("unstack", {obj: 2}),
-        ],
-        device=device,
-    )
-
-    objects = {obj: ["block1", "block2", "block3", "block4", "block5"]}
-
-    domain_model.ground(objects)
-    return domain_model
-
-
-def get_domain_model_gripper(device):
-    base = Type("object", None)
-    room = Type("room", base)
-    ball = Type("ball", base)
-    gripper = Type("gripper", base)
-
-    domain_model = Domain_Model(
-        [
-            Predicate("at-robby", {room: 1}),
-            Predicate("at", {ball: 1, room: 1}),
-            Predicate("free", {gripper: 1}),
-            Predicate("carry", {ball: 1, gripper: 1}),
-        ],
-        [
-            Action_Schema("move", {room: 2}),
-            Action_Schema("pick", {ball: 1, room: 1, gripper: 1}),
-            Action_Schema("drop", {ball: 1, room: 1, gripper: 1}),
-        ],
-        device=device,
-    )
-
-    objects = {
-        room: ["rooma", "roomb"],
-        ball: ["ball1", "ball2", "ball3", "ball4", "ball5", "ball6"],
-        gripper: ["left", "right"],
-    }
-
-    domain_model.ground(objects)
-    return domain_model
-
-
-def get_domain_model_logistics(device):
-    base = Type("object", None)
-    movable = Type("movable", base)
-    location = Type("location", base)
-    city = Type("city", base)
-    obj = Type("obj", movable)
-    transport = Type("transport", movable)
-    truck = Type("truck", transport)
-    airplane = Type("airplane", transport)
-    airport = Type("airport", location)
-
-    domain_model = Domain_Model(
-        [
-            Predicate("at", {movable: 1, location: 1}),
-            Predicate("in", {obj: 1, transport: 1}),
-            Predicate("in-city", {location: 1, city: 1}),
-        ],
-        [
-            Action_Schema("load-truck", {obj: 1, truck: 1, location: 1}),
-            Action_Schema("load-airplane", {obj: 1, airplane: 1, airport: 1}),
-            Action_Schema("unload-truck", {obj: 1, truck: 1, location: 1}),
-            Action_Schema("unload-airplane", {obj: 1, airplane: 1, airport: 1}),
-            Action_Schema("drive-truck", {truck: 1, location: 2, city: 1}),
-            Action_Schema("fly-airplane", {airplane: 1, airport: 2}),
-        ],
-        device=device,
-    )
-
-    objects = {
-        location: ["city1-1", "city2-1"],
-        city: ["city1", "city2"],
-        obj: [
-            "package1",
-            "package2",
-            "package3",
-            "package4",
-            "package5",
-            "package6",
-        ],
-        truck: ["truckred", "trucklime"],
-        airplane: ["planeblue", "planeyellow"],
-        airport: ["city1-2", "city2-2"],
-    }
-
-    domain_model.ground(objects)
-    return domain_model
-
-
-def get_domain_model_hanoi(device):
-    obj = Type("object", None)
-
-    domain_model = Domain_Model(
-        [
-            Predicate("clear", {obj: 1}),
-            Predicate("on", {obj: 2}),
-            Predicate("smaller", {obj: 2}),
-        ],
-        [
-            Action_Schema("move", {obj: 3}),
-        ],
-        device=device,
-    )
-
-    objects = {obj: ["d1", "d2", "d3", "d4", "peg1", "peg2", "peg3"]}
-
-    domain_model.ground(objects)
-    return domain_model
-
-
-def get_domain_model_slide(device):
-    base = Type("object", None)
-    tile = Type("tile", base)
-    position = Type("position", base)
-
-    domain_model = Domain_Model(
-        [
-            Predicate("at", {tile: 1, position: 2}),
-            Predicate("blank", {position: 2}),
-            Predicate("inc", {position: 2}),
-            Predicate("dec", {position: 2}),
-        ],
-        [
-            Action_Schema("move-up", {tile: 1, position: 3}),
-            Action_Schema("move-down", {tile: 1, position: 3}),
-            Action_Schema("move-left", {tile: 1, position: 3}),
-            Action_Schema("move-right", {tile: 1, position: 3}),
-        ],
-        device=device,
-    )
-
-    objects = {
-        tile: ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"],
-        position: ["x1", "x2", "x3", "y1", "y2", "y3"],
-    }
-
-    domain_model.ground(objects)
+def get_domain_model(domain, device):
+    domain_model = load_model(os.path.join("models/domain", domain, "domain_model.json"), device)
+    domain_mdoel.ground_from_json(os.path.join("models/domain", domain, "objects.json"))
     return domain_model
 
 
@@ -272,12 +123,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--domain",
         choices=[
-            "grid_block",
+            "grid_blocks",
             "grid_gripper",
             "grid_logistics",
-            "synth_block",
+            "synth_blocks",
             "synth_hanoi",
-            "synth_slide",
+            "synth_8-puzzle",
         ],
     )
     parser.add_argument("--gamma", type=float, default=10)
@@ -301,9 +152,9 @@ if __name__ == "__main__":
 
     # Set up domain model and cv model.
     # Gather experiment data.
-    if args.domain == "grid_block":
+    if args.domain == "grid_blocks":
         block_num = args.block_num
-        domain_model = get_domain_model_block(device)
+        domain_model = get_domain_model("blocks", device)
         cv_model = CVGrid(
             GridConv(digit_class_num=block_num + 1, input_channel=1),
             block_dim=(block_num + 1, block_num),
@@ -315,7 +166,7 @@ if __name__ == "__main__":
         data_transform = RearrangeColumn(block_num)
     elif args.domain == "grid_gripper":
         ball_num = args.ball_num
-        domain_model = get_domain_model_gripper(device)
+        domain_model = get_domain_model("gripper", device)
         cv_model = CVGrid(
             GridConv(digit_class_num=(ball_num + 1) * 2, input_channel=1),
             block_dim=(4, ball_num),
@@ -326,7 +177,7 @@ if __name__ == "__main__":
         )
         data_transform = RearrangeBalls(ball_num)
     elif args.domain == "grid_logistics":
-        domain_model = get_domain_model_logistics(device)
+        domain_model = get_domain_model("logistics", device)
         digit_class_num = 35
         cv_model = CVGrid(
             GridConv(digit_class_num=digit_class_num, input_channel=3),
@@ -338,7 +189,7 @@ if __name__ == "__main__":
         )
         data_transform = RearrangeItems()
     elif args.domain == "synth_block":
-        domain_model = get_domain_model_block(device)
+        domain_model = get_domain_model("blocks", device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
             nn.Linear(512, 512),
@@ -354,7 +205,7 @@ if __name__ == "__main__":
             ]
         )
     elif args.domain == "synth_hanoi":
-        domain_model = get_domain_model_hanoi(device)
+        domain_model = get_domain_model("hanoi", device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
             nn.Linear(512, 512),
@@ -364,8 +215,8 @@ if __name__ == "__main__":
             nn.Linear(256, len(domain_model.propositions)),
         )
         data_transform = transforms.Resize(64)
-    elif args.domain == "synth_slide":
-        domain_model = get_domain_model_slide(device)
+    elif args.domain == "synth_8-puzzle":
+        domain_model = get_domain_model("8-puzzle", device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
             nn.Linear(512, 512),
