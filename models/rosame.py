@@ -300,6 +300,17 @@ class Domain_Model(nn.Module):
             list(type_dict.values()), predicates, action_schemas, device
         )
 
+    def ground_from_json(self, file_pth):
+        with open(file_pth, "r") as f:
+            json_dict = json.load(f)
+        type_dict = {t.name: t for t in self.types}
+        self.ground(
+            {
+                type_dict[type_num]: object_list
+                for type_num, object_list in json_dict.items()
+            }
+        )
+
 
 class DomainModelEncoder(JSONEncoder):
     def default(self, o):
