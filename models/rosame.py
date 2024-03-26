@@ -76,6 +76,19 @@ class Action_Schema(nn.Module):
         # predicates that are relevant
         self.predicates = []
 
+    def action(self, sorted_obj_lists):
+        return (
+            self.name
+            + " "
+            + " ".join(
+                [
+                    f"{self.params_types[i].name} "
+                    + f" {self.params_types[i].name} ".join(sorted_obj_lists[i])
+                    for i in range(len(sorted_obj_lists))
+                ]
+            )
+        ).strip()
+
     def initialise(self, predicates, device):
         """
         Input all predicates and generate the deep learning model for the action schema
@@ -194,9 +207,10 @@ class Domain_Model(nn.Module):
             action_schema.initialise(predicates, self.device)
 
     def ground(self, objects):
-        # Ground predicates to propositions
+        # Ground predicates to propositions, action schemas to actions
         # Record in a dictionary with values as indices, for later lookup
         self.propositions = {}
+        self.actions = {}
         for predicate in self.predicates:
             for proposition in predicate.ground(objects):
                 self.propositions[proposition] = len(self.propositions)
