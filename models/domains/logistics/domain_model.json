@@ -17,7 +17,7 @@
             "parent": "object"
         },
         {
-            "name": "package",
+            "name": "obj",
             "parent": "movable"
         },
         {
@@ -48,7 +48,7 @@
         {
             "name": "in",
             "params": {
-                "package": 1,
+                "obj": 1,
                 "transport": 1
             }
         },
@@ -64,7 +64,7 @@
         {
             "name": "load-truck",
             "params": {
-                "package": 1,
+                "obj": 1,
                 "truck": 1,
                 "location": 1
             }
@@ -72,7 +72,7 @@
         {
             "name": "load-airplane",
             "params": {
-                "package": 1,
+                "obj": 1,
                 "airplane": 1,
                 "airport": 1
             }
@@ -80,7 +80,7 @@
         {
             "name": "unload-truck",
             "params": {
-                "package": 1,
+                "obj": 1,
                 "truck": 1,
                 "location": 1
             }
@@ -88,7 +88,7 @@
         {
             "name": "unload-airplane",
             "params": {
-                "package": 1,
+                "obj": 1,
                 "airplane": 1,
                 "airport": 1
             }

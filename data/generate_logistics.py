@@ -5,12 +5,8 @@ import torch
 import torchvision
 import matplotlib.pyplot as plt
 from macq import generate, extract
-import sys
 import argparse
 import os
-
-sys.path.append("..")
-from models.rosame import *
 
 
 eminst_dataset, target_index = None, None
@@ -185,72 +181,32 @@ def show_mnist_image(raw):
     plt.imshow(255-img_shown)
 
 
-def get_domain_model_and_actions(device):
-    base = Type("object", None)
-    movable = Type("movable", base)
-    location = Type("location", base)
-    city = Type("city", base)
-    obj = Type("obj", movable)
-    transport = Type("transport", movable)
-    truck = Type("truck", transport)
-    airplane = Type("airplane", transport)
-    airport = Type("airport", location)
-
-    domain_model = Domain_Model(
-        [
-            Predicate("at", {movable: 1, location: 1}),
-            Predicate("in", {obj: 1, transport: 1}),
-            Predicate("in-city", {location: 1, city: 1}),
-        ],
-        [
-            Action_Schema("load-truck", {obj: 1, truck: 1, location: 1}),
-            Action_Schema("load-airplane", {obj: 1, airplane: 1, airport: 1}),
-            Action_Schema("unload-truck", {obj: 1, truck: 1, location: 1}),
-            Action_Schema("unload-airplane", {obj: 1, airplane: 1, airport: 1}),
-            Action_Schema("drive-truck", {truck: 1, location: 2, city: 1}),
-            Action_Schema("fly-airplane", {airplane: 1, airport: 2}),
-        ],
-        device=device,
-    )
-
-    objects = {
-        location: ["city1-1", "city2-1"],
-        city: ["city1", "city2"],
-        obj: [
-            "package1",
-            "package2",
-            "package3",
-            "package4",
-            "package5",
-            "package6",
-        ],
-        truck: ["truckred", "trucklime"],
-        airplane: ["planeblue", "planeyellow"],
-        airport: ["city1-2", "city2-2"],
-    }
-
-    domain_model.ground(objects)
-
-    all_grounded_actions = {}
-    for action_schema in domain_model.action_schemas:
-        obj_lists_per_params = {params_type:[] for params_type in action_schema.params_types}
-        for params_type in action_schema.params_types:
-            for obj_type in objects.keys():
-                if obj_type.is_child(params_type):
-                    obj_lists_per_params[params_type].extend(objects[obj_type])  
-        for obj_list in itertools.product(*[itertools.permutations(obj_lists_per_params[params_type], action_schema.params[params_type])\
-                                              for params_type in action_schema.params_types]):
-            objects_per_action = {}
-            constructed = action_schema.name + ' ' + ' '.join([f'{action_schema.params_types[i].name} '
-                                                               +f' {action_schema.params_types[i].name} '.join(obj_list[i])
-                                                               for i in range(len(obj_list))])
-            all_grounded_actions[constructed] = len(all_grounded_actions)
-
-    return domain_model, all_grounded_actions
+def get_actions_and_props(packages, trucks, planes, locations, airports, cities):
+    actions = [f"load-truck location {loc} obj {package} truck {truck}"
+    for loc in locations+airports for package in packages for truck in trucks]
+    actions.extend([f"load-airplane airplane {plane} airport {airport} obj {package}"
+        for plane in planes for airport in airports for package in packages])
+    actions.extend([f"unload-truck location {loc} obj {package} truck {truck}"
+        for loc in locations+airports for package in packages for truck in trucks])
+    actions.extend([f"unload-airplane airplane {plane} airport {airport} obj {package}"
+        for plane in planes for airport in airports for package in packages])
+    actions.extend([f"drive-truck city {city} location {loc1} location {loc2} truck {truck}"
+        for city in cities for loc1 in locations+airports for loc2 in locations+airports if loc1!=loc2 for truck in trucks])
+    actions.extend([f"fly-airplane airplane {plane} airport {airport1} airport {airport2}"
+        for plane in planes for airport1 in airports for airport2 in airports if airport1!= airport2])
+    actions = {k: v for v, k in enumerate(actions)}
+    propositions = [f"at location {loc} movable {movable}"
+    for loc in locations+airports for movable in packages+trucks+planes]
+    propositions.extend([f"in obj {package} transport {transport}"
+        for package in packages for transport in trucks+planes])
+    propositions.extend([f"in-city city {city} location {loc}"
+        for city in cities for loc in locations+airports])
+    propositions = {k: v for v, k in enumerate(propositions)}
+    return actions, propositions
 
 
 def state_to_label(state):
-    label = np.zeros(len(model.propositions))
+    label = np.zeros(len(propositions))
     for f in state.fluents:
         serialized_list = f._serialize()[1:-1].split(' ')
         if f.name=='at':
@@ -259,12 +215,12 @@ def state_to_label(state):
             f_string = f'in obj {serialized_list[2]} transport {serialized_list[4]}'
         elif f.name=='in-city':
             f_string = f'in-city city {serialized_list[4]} location {serialized_list[2]}'
-        label[model.propositions[f_string]] = state.fluents[f]
+        label[propositions[f_string]] = state.fluents[f]
     # macq does not recognise static propositions as fluents
-    label[model.propositions["in-city city city1 location city1-1"]] = 1
-    label[model.propositions["in-city city city1 location city1-2"]] = 1
-    label[model.propositions["in-city city city2 location city2-1"]] = 1
-    label[model.propositions["in-city city city2 location city2-2"]] = 1
+    label[propositions["in-city city city1 location city1-1"]] = 1
+    label[propositions["in-city city city1 location city1-2"]] = 1
+    label[propositions["in-city city city2 location city2-1"]] = 1
+    label[propositions["in-city city city2 location city2-2"]] = 1
     return label
 
 
@@ -272,6 +228,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", type=int, default=3000, help="trace num")
     parser.add_argument("-l", type=int, default=10, help="trace length")
+    parser.add_argument("--num_packages", type=int, default=6, help="number of packages")
     parser.add_argument("--skip", type=int, default=1, help="skip between traces")
     parser.add_argument("-s", default="data", help="save address")
     parser.add_argument("--pddl_dom", default="./pddl/logistics/domain.pddl")
@@ -292,7 +249,7 @@ if __name__ == "__main__":
     truck_city = {'truckred':'city1', 'trucklime':'city2'}
     locations = ['city1-1', 'city2-1']
     airports = ['city1-2', 'city2-2']
-    num_packages = 6
+    num_packages = args.num_packages
     packages = [f'package{i}' for i in range(1, num_packages+1)]
 
     vehicle_color = {f'truck{c}':c for c in ['red', 'lime']}
@@ -304,7 +261,7 @@ if __name__ == "__main__":
     all_fluents = {f._serialize():f for f in trace.fluents}
 
     init_mnist()
-    model, all_grounded_actions = get_domain_model_and_actions(torch.device("cpu"))
+    actions, propositions = get_actions_and_props(packages, trucks, planes, locations, airports, list(city_locations.keys()))
 
     traces_images = []
     traces_actions = []
@@ -326,7 +283,7 @@ if __name__ == "__main__":
                     o.obj_type = 'location'
                 action_obj_params.append(o)
             action_obj_params = sorted(action_obj_params, key=lambda o:o.obj_type)
-            trace_actions.append(all_grounded_actions[f"{action.name} {' '.join([o.details()for o in action_obj_params])}"])
+            trace_actions.append(actions[f"{action.name} {' '.join([o.details()for o in action_obj_params])}"])
             img, meta = get_next_img(img, meta, trace.steps[step].action)
         
         # Record final state label
