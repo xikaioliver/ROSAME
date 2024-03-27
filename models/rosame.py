@@ -133,37 +133,33 @@ class Action_Schema(nn.Module):
     def forward(self):
         return self.mlp(self.randn)
 
-    def ground(self, objects, is_single_action=False):
-        if is_single_action:
-            propositions = []
+    def ground(self, objects):
+        actions = []
+        propositions = []
+        obj_lists_per_params = {
+            params_type: [] for params_type in self.params_types
+        }
+        for params_type in self.params_types:
+            for obj_type in objects.keys():
+                if obj_type.is_child(params_type):
+                    obj_lists_per_params[params_type].extend(objects[obj_type])
+        for obj_list in itertools.product(
+            *[
+                itertools.permutations(
+                    obj_lists_per_params[params_type], self.params[params_type]
+                )
+                for params_type in self.params_types
+            ]
+        ):
+            actions.append(self.action(obj_list))
+            objects_per_action = {}
+            for i in range(len(self.params_types)):
+                objects_per_action[self.params_types[i]] = obj_list[i]
+            propositions_per_action = []
             for predicate in self.predicates:
-                propositions.extend(predicate.ground(objects))
-            return propositions
-        else:
-            propositions = []
-            obj_lists_per_params = {
-                params_type: [] for params_type in self.params_types
-            }
-            for params_type in self.params_types:
-                for obj_type in objects.keys():
-                    if obj_type.is_child(params_type):
-                        obj_lists_per_params[params_type].extend(objects[obj_type])
-            for obj_list in itertools.product(
-                *[
-                    itertools.permutations(
-                        obj_lists_per_params[params_type], self.params[params_type]
-                    )
-                    for params_type in self.params_types
-                ]
-            ):
-                objects_per_action = {}
-                for i in range(len(self.params_types)):
-                    objects_per_action[self.params_types[i]] = obj_list[i]
-                propositions_per_action = []
-                for predicate in self.predicates:
-                    propositions_per_action.extend(predicate.ground(objects_per_action))
-                propositions.append(propositions_per_action)
-            return propositions
+                propositions_per_action.extend(predicate.ground(objects_per_action))
+            propositions.append(propositions_per_action)
+        return actions, propositions
 
     def pretty_print(self):
         var = {}
@@ -178,7 +174,7 @@ class Action_Schema(nn.Module):
             + " "
             + " ".join([k.name + " " + v for k in var.keys() for v in var[k]])
         )
-        propositions = self.ground(var, True)
+        propositions = [p for predicate in self.predicates for p in predicate.ground(var)]
         precon_list = []
         addeff_list = []
         deleff_list = []
@@ -220,10 +216,13 @@ class Domain_Model(nn.Module):
         # Also need to know which action schema each action is from
         self.action_to_schema = []
         for action_schema in self.action_schemas:
-            for propositions in action_schema.ground(objects):
-                self.indices.append([self.propositions[p] for p in propositions])
+            grounded_actions, relevant_props = action_schema.ground(objects)
+            for action in grounded_actions:
+                self.actions[action] = len(self.actions)
                 self.action_to_schema.append(action_schema)
-
+            for propositions in relevant_props:
+                self.indices.append([self.propositions[p] for p in propositions])
+                
     def build(self, actions):
         """
         actions is a list of numbers
@@ -350,7 +349,7 @@ def dump_model(domain_model, file_pth):
         f.write(json.dumps(domain_model, cls=DomainModelEncoder, indent=4))
 
 
-def load_model(file_pth, device):
+def load_model(file_pth, device=torch.device("cpu")):
     with open(file_pth, "r") as f:
         domain_model = Domain_Model.create_from_json(json.load(f), device)
     return domain_model
