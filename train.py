@@ -15,8 +15,8 @@ import os
 
 
 def get_domain_model(domain, device):
-    domain_model = load_model(os.path.join("models/domains", domain, "domain_model.json"), device)
-    domain_model.ground_from_json(os.path.join("models/domains", domain, "objects.json"))
+    domain_model = load_model(os.path.join(os.path.dirname(__file__), "models/domains", domain, "domain_model.json"), device)
+    domain_model.ground_from_json(os.path.join(os.path.dirname(__file__), "models/domains", domain, "objects.json"))
     return domain_model
 
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
             prop_dim=len(domain_model.propositions),
         )
         data_transform = RearrangeItems()
-    elif args.domain == "synth_block":
+    elif args.domain == "synth_blocks":
         domain_model = get_domain_model("blocks", device)
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
