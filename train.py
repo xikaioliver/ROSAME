@@ -15,8 +15,8 @@ import os
 
 
 def get_domain_model(domain, device):
-    domain_model = load_model(os.path.join("models/domain", domain, "domain_model.json"), device)
-    domain_mdoel.ground_from_json(os.path.join("models/domain", domain, "objects.json"))
+    domain_model = load_model(os.path.join("models/domains", domain, "domain_model.json"), device)
+    domain_model.ground_from_json(os.path.join("models/domains", domain, "objects.json"))
     return domain_model
 
 
