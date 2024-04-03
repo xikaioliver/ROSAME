@@ -240,7 +240,7 @@ if __name__ == "__main__":
             dataset, [training_size, args.trace_num-training_size, len(dataset)-args.trace_num]
         )
     else:
-        skip = "break_symmetry" if args.domain == "synth_block" else 1
+        skip = "break_symmetry" if args.domain == "synth_blocks" else 1
         dataset = SynthDataset(
             args.dataset_pth, args.trace_len, skip, transforms=data_transform
         )
