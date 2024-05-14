@@ -324,6 +324,17 @@ class Domain_Model(nn.Module):
             }
         )
 
+    def state_dict(self):
+        pam_state_dicts = {}
+        for schema in self.action_schemas:
+            pam_state_dicts[schema.name] = [schema.randn, schema.state_dict()]
+        return pam_state_dicts
+
+    def load_state_dict(pam_state_dicts):
+        for schema in self.action_schemas:
+            schema.randn = pam_state_dicts[schema.name][0]
+            schema.load_state_dict(pam_state_dicts[schema.name][1])
+
 
 class DomainModelEncoder(JSONEncoder):
     def default(self, o):
