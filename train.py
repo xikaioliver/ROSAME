@@ -15,8 +15,17 @@ import os
 
 
 def get_domain_model(domain, device):
-    domain_model = load_model(os.path.join(os.path.dirname(__file__), "models/domains", domain, "domain_model.json"), device)
-    domain_model.ground_from_json(os.path.join(os.path.dirname(__file__), "models/domains", domain, "objects.json"))
+    domain_model = load_model(
+        os.path.join(
+            os.path.dirname(__file__), "models/domains", domain, "domain_model.json"
+        ),
+        device,
+    )
+    domain_model.ground_from_json(
+        os.path.join(
+            os.path.dirname(__file__), "models/domains", domain, "objects.json"
+        )
+    )
     return domain_model
 
 
@@ -145,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument("--block_num", type=int, default=5)
     parser.add_argument("--ball_num", type=int, default=6)
     parser.add_argument("--seed", type=int, default=8800)
+    parser.add_argument("-s", default="model.pth", help="save address")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -235,9 +245,14 @@ if __name__ == "__main__":
         dataset = GridDataset(
             args.dataset_pth, args.trace_len, transforms=data_transform
         )
-        training_size = int(args.trace_num*0.9)
+        training_size = int(args.trace_num * 0.9)
         trainset, testset, _ = random_split(
-            dataset, [training_size, args.trace_num-training_size, len(dataset)-args.trace_num]
+            dataset,
+            [
+                training_size,
+                args.trace_num - training_size,
+                len(dataset) - args.trace_num,
+            ],
         )
     else:
         skip = "break_symmetry" if args.domain == "synth_blocks" else 1
@@ -245,7 +260,7 @@ if __name__ == "__main__":
             args.dataset_pth, args.trace_len, skip, transforms=data_transform
         )
         trainset, testset, _ = random_split(
-            dataset, [args.trace_num, 100, len(dataset)-args.trace_num-100]
+            dataset, [args.trace_num, 100, len(dataset) - args.trace_num - 100]
         )
     train_loader = DataLoader(trainset, args.batch_size, shuffle=True)
     test_loader = DataLoader(testset, args.batch_size, shuffle=True)
@@ -300,3 +315,8 @@ if __name__ == "__main__":
     for schema in domain_model.action_schemas:
         schema.pretty_print()
         print()
+
+    torch.save(
+        {"domain_model": domain_model.state_dict(), "cv_model": cv_model.state_dict()},
+        args.s,
+    )

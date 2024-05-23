@@ -136,9 +136,7 @@ class Action_Schema(nn.Module):
     def ground(self, objects):
         actions = []
         propositions = []
-        obj_lists_per_params = {
-            params_type: [] for params_type in self.params_types
-        }
+        obj_lists_per_params = {params_type: [] for params_type in self.params_types}
         for params_type in self.params_types:
             for obj_type in objects.keys():
                 if obj_type.is_child(params_type):
@@ -174,7 +172,9 @@ class Action_Schema(nn.Module):
             + " "
             + " ".join([k.name + " " + v for k in var.keys() for v in var[k]])
         )
-        propositions = [p for predicate in self.predicates for p in predicate.ground(var)]
+        propositions = [
+            p for predicate in self.predicates for p in predicate.ground(var)
+        ]
         precon_list = []
         addeff_list = []
         deleff_list = []
@@ -222,7 +222,7 @@ class Domain_Model(nn.Module):
                 self.action_to_schema.append(action_schema)
             for propositions in relevant_props:
                 self.indices.append([self.propositions[p] for p in propositions])
-                
+
     def build(self, actions):
         """
         actions is a list of numbers
@@ -339,7 +339,10 @@ class Domain_Model(nn.Module):
 class DomainModelEncoder(JSONEncoder):
     def default(self, o):
         if isinstance(o, Type):
-            return {"name": o.name, "parent": o.parent.name if o.parent is not None else None}
+            return {
+                "name": o.name,
+                "parent": o.parent.name if o.parent is not None else None,
+            }
         elif isinstance(o, Predicate) or isinstance(o, Action_Schema):
             return {
                 "name": o.name,
