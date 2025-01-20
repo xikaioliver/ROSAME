@@ -32,16 +32,19 @@ class Predicate:
         self.params_types = sorted(params.keys(), key=lambda x: x.name)
 
     def proposition(self, sorted_obj_lists):
+        """
+        Generate a grounded proposition string without type annotations.
+        Usually we do not want types in grounded propositions.
+        """
         return (
-            self.name
-            + " "
-            + " ".join(
-                [
-                    f"{self.params_types[i].name} "
-                    + f" {self.params_types[i].name} ".join(sorted_obj_lists[i])
-                    for i in range(len(sorted_obj_lists))
-                ]
-            )
+                self.name
+                + " "
+                + " ".join(
+            [
+                " ".join(sorted_obj_lists[i])
+                for i in range(len(sorted_obj_lists))
+            ]
+        )
         ).strip()
 
     def ground(self, objects):
@@ -89,16 +92,19 @@ class Action_Schema(nn.Module):
         )
 
     def action(self, sorted_obj_lists):
+        """
+        Generate a grounded action string without type annotations.
+        Usually we do not want types in grounded actions.
+        """
         return (
-            self.name
-            + " "
-            + " ".join(
-                [
-                    f"{self.params_types[i].name} "
-                    + f" {self.params_types[i].name} ".join(sorted_obj_lists[i])
-                    for i in range(len(sorted_obj_lists))
-                ]
-            )
+                self.name
+                + " "
+                + " ".join(
+            [
+                " ".join(sorted_obj_lists[i])
+                for i in range(len(sorted_obj_lists))
+            ]
+        )
         ).strip()
 
     def initialise(self, predicates):
@@ -358,3 +364,95 @@ def load_model(file_pth):
     with open(file_pth, "r") as f:
         domain_model = Domain_Model.create_from_json(json.load(f))
     return domain_model
+
+def extract_pddl(domain_model, domain_name="default_domain"):
+    """
+    Generate a PDDL domain file from the trained domain model.
+
+    Parameters:
+        domain_model (Domain_Model): The domain model object.
+        domain_name (str): The name of the PDDL domain.
+
+    Returns:
+        str: The PDDL domain as a string.
+
+    Example usage
+    Assuming domain_model is an instance of the Domain_Model class
+    print(extract_pddl(domain_model, domain_name="example_domain"))
+    """
+    def format_types(types):
+        """Format types into PDDL types definition."""
+        type_hierarchy = {}
+        for t in types:
+            parent = t.parent.name if t.parent else "object"
+            if parent not in type_hierarchy:
+                type_hierarchy[parent] = []
+            type_hierarchy[parent].append(t.name)
+
+        type_definitions = []
+        for parent, children in type_hierarchy.items():
+            if parent == "object":
+                type_definitions.append(" ".join(children))
+            else:
+                type_definitions.append(f"{' '.join(children)} - {parent}")
+        return "\n        " + "\n        ".join(type_definitions)
+
+    def format_predicates(predicates):
+        """Format predicates into PDDL predicates definition."""
+        predicate_strings = []
+        for p in predicates:
+            params = " ".join([f"?{chr(97 + i)} - {t.name}" for i, t in enumerate(p.params_types)])
+            predicate_strings.append(f"({p.name} {params})")
+        return "\n        " + "\n        ".join(predicate_strings)
+
+    def format_actions(action_schemas):
+        """Format actions into PDDL actions definition."""
+        action_strings = []
+        for action in action_schemas:
+            var = {}
+            n = 0
+            for param_type in action.params_types:
+                var[param_type] = list(string.ascii_lowercase)[n : n + action.params[param_type]]
+                n += action.params[param_type]
+
+            variables = " ".join([f"?{v} - {k.name}" for k in var.keys() for v in var[k]])
+            propositions = [p for predicate in action.predicates for p in predicate.ground(var)]
+
+            preconditions = []
+            effects = []
+
+            result = torch.argmax(action(), dim=1)
+            for i in range(len(propositions)):
+                if result[i] == 1:
+                    effects.append(f"({propositions[i]})")
+                elif result[i] == 2:
+                    preconditions.append(f"({propositions[i]})")
+                elif result[i] == 3:
+                    preconditions.append(f"({propositions[i]})")
+                    effects.append(f"(not ({propositions[i]}))")
+
+            precondition_str = "(and " + " ".join(preconditions) + ")" if preconditions else "()"
+            effect_str = "(and " + " ".join(effects) + ")" if effects else "()"
+
+            action_strings.append(f"""
+        (:action {action.name}
+            :parameters ({variables})
+            :precondition {precondition_str}
+            :effect {effect_str}
+        )
+        """)
+        return "\n".join(action_strings)
+
+    types_str = format_types(domain_model.types)
+    predicates_str = format_predicates(domain_model.predicates)
+    actions_str = format_actions(domain_model.action_schemas)
+
+    pddl_domain = f"""
+    (define (domain {domain_name})
+        (:requirements :strips :typing)
+        (:types{types_str})
+        (:predicates{predicates_str})
+        {actions_str}
+    )
+    """
+    return pddl_domain.strip()
