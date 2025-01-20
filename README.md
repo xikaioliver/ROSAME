@@ -1,5 +1,12 @@
 # ROSAME: a neu**RO**-**S**ymbolic **A**ction **M**odel l**E**arner
 
+## Update 25.01
+- Updated the fixed latent vector for each relevant predicate to be a PyTorch buffer for improved integration.
+- Converted the list of action schemas to a `ModuleList` in the `Domain_Model` class for better modularity.
+- Enhanced `ROSAME Domain_Model` to function as a standard PyTorch module, enabling support for functions like `to()` and `state_dict()`.
+- Added a method to directly extract a standard PDDL domain file from `ROSAME`.
+- Refactored the blocksworld generator into a submodule, eliminating the need for manual cloning or building.
+
 ## Paper
 This repository holds codes for our paper in ICAPS 2024: [Neuro-Symbolic Learning of Lifted Action Models from Visual Traces](https://users.cecs.anu.edu.au/~thiebaux/papers/icaps24-rosame.pdf).
 
