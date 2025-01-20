@@ -4,7 +4,6 @@ from data.dataset import *
 
 import torch
 import torch.optim as optim
-
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 import torchvision
@@ -12,21 +11,6 @@ import torchvision
 import random
 import argparse
 import os
-
-
-def get_domain_model(domain, device):
-    domain_model = load_model(
-        os.path.join(
-            os.path.dirname(__file__), "models/domains", domain, "domain_model.json"
-        ),
-        device,
-    )
-    domain_model.ground_from_json(
-        os.path.join(
-            os.path.dirname(__file__), "models/domains", domain, "objects.json"
-        )
-    )
-    return domain_model
 
 
 @torch.no_grad()
@@ -61,8 +45,10 @@ def run(
 
     if to_train:
         cv_model.train()  # Set model to training mode
+        domain_model.train()
     else:
         cv_model.eval()  # Set model to evaluate mode
+        domain_model.eval()
 
     for i, (data, label, action) in enumerate(data_loader):
         data = data.to(device)
