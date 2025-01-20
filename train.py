@@ -61,7 +61,7 @@ def run(
             preds = cv_model(flattened_data)
             loss = 0
             # Domain model inference loss
-            precon, addeff, deleff = domain_model.build(action.flatten())
+            precon, addeff, deleff = domain_model(action.flatten())
             domain_preds = preds * (1 - deleff) + (1 - preds) * addeff
             # domain_preds = 1 - (1-preds*(1-deleff)) * (1-(1-preds)*addeff)
             validity_constraint = (1 - preds) * (precon)
