@@ -17,12 +17,18 @@ mnist_dataset, target_index = None, None
 
 def const_init_states(generator_addr):
     init_states = []
-
-    p = Popen(f"{generator_addr} -n {obj_num} -p {state_num}", stdout=PIPE, shell=True)
-    line = p.stdout.readline()
+    p = Popen(f"{generator_addr} -n {obj_num} -p {state_num}", stdout=PIPE, stderr=PIPE, shell=True)
+    err_msg = p.stderr.readline()
+    if err_msg:
+        # Error message trying to generate initial states
+        # It is likely due to the repo has not been built yet (for the first time)
+        # Run make before regenerate the initial state
+        submodule_dir = os.path.dirname(generator_addr)
+        run(["make"], cwd=submodule_dir, capture_output=True, text=True)
+        p = Popen(f"{generator_addr} -n {obj_num} -p {state_num}", stdout=PIPE, stderr=PIPE, shell=True)
     for _ in range(state_num):
+        p.stdout.readline() # Discard empty line that separate samples
         init_states.append(p.stdout.readline().decode("utf-8")[:-1])
-        p.stdout.readline()
     return init_states
 
 
