@@ -1,6 +1,7 @@
+import os
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 import itertools
 import math
@@ -75,6 +76,17 @@ class Action_Schema(nn.Module):
         self.params_types = sorted(params.keys(), key=lambda x: x.name)
         # predicates that are relevant
         self.predicates = []
+        self.register_buffer("randn", None)
+        self.mlp = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 4),
+            nn.Softmax(dim=-1)
+        )
 
     def action(self, sorted_obj_lists):
         return (
@@ -89,7 +101,7 @@ class Action_Schema(nn.Module):
             )
         ).strip()
 
-    def initialise(self, predicates, device):
+    def initialise(self, predicates):
         """
         Input all predicates and generate the deep learning model for the action schema
         """
@@ -193,14 +205,13 @@ class Action_Schema(nn.Module):
 
 
 class Domain_Model(nn.Module):
-    def __init__(self, types, predicates, action_schemas, device):
+    def __init__(self, types, predicates, action_schemas):
         super(Domain_Model, self).__init__()
         self.types = types
         self.predicates = predicates
-        self.action_schemas = action_schemas
-        self.device = device
+        self.action_schemas = nn.ModuleList(action_schemas)
         for action_schema in action_schemas:
-            action_schema.initialise(predicates, self.device)
+            action_schema.initialise(predicates)
 
     def ground(self, objects):
         # Ground predicates to propositions, action schemas to actions
@@ -223,23 +234,26 @@ class Domain_Model(nn.Module):
             for propositions in relevant_props:
                 self.indices.append([self.propositions[p] for p in propositions])
 
-    def build(self, actions):
+    def forward(self, actions):
         """
         actions is a list of numbers
         """
+        # Dynamically get the current device
+        device = next(self.parameters()).device
+
         precon = torch.zeros(
             (len(actions), len(self.propositions)),
-            device=self.device,
+            device=device,
             requires_grad=False,
         )
         addeff = torch.zeros(
             (len(actions), len(self.propositions)),
-            device=self.device,
+            device=device,
             requires_grad=False,
         )
         deleff = torch.zeros(
             (len(actions), len(self.propositions)),
-            device=self.device,
+            device=device,
             requires_grad=False,
         )
         for i in range(len(actions)):
@@ -249,13 +263,13 @@ class Domain_Model(nn.Module):
 
             schema_prams = schema()
             schema_precon = schema_prams @ torch.tensor(
-                [0.0, 0.0, 1.0, 1.0], device=self.device
+                [0.0, 0.0, 1.0, 1.0], device=device
             )
             schema_addeff = schema_prams @ torch.tensor(
-                [0.0, 1.0, 0.0, 0.0], device=self.device
+                [0.0, 1.0, 0.0, 0.0], device=device
             )
             schema_deleff = schema_prams @ torch.tensor(
-                [0.0, 0.0, 0.0, 1.0], device=self.device
+                [0.0, 0.0, 0.0, 1.0], device=device
             )
 
             if len(y_indices) > len(y_indices_set):
@@ -289,7 +303,7 @@ class Domain_Model(nn.Module):
         return precon, addeff, deleff
 
     @staticmethod
-    def create_from_json(json_dict, device):
+    def create_from_json(json_dict):
         type_dict = {}
         predicates = []
         action_schemas = []
@@ -310,7 +324,7 @@ class Domain_Model(nn.Module):
                 )
             )
         return Domain_Model(
-            list(type_dict.values()), predicates, action_schemas, device
+            list(type_dict.values()), predicates, action_schemas
         )
 
     def ground_from_json(self, file_pth):
@@ -323,17 +337,6 @@ class Domain_Model(nn.Module):
                 for type_num, object_list in json_dict.items()
             }
         )
-
-    def state_dict(self):
-        pam_state_dicts = {}
-        for schema in self.action_schemas:
-            pam_state_dicts[schema.name] = [schema.randn, schema.state_dict()]
-        return pam_state_dicts
-
-    def load_state_dict(pam_state_dicts):
-        for schema in self.action_schemas:
-            schema.randn = pam_state_dicts[schema.name][0]
-            schema.load_state_dict(pam_state_dicts[schema.name][1])
 
 
 class DomainModelEncoder(JSONEncoder):
@@ -363,7 +366,7 @@ def dump_model(domain_model, file_pth):
         f.write(json.dumps(domain_model, cls=DomainModelEncoder, indent=4))
 
 
-def load_model(file_pth, device=torch.device("cpu")):
+def load_model(file_pth):
     with open(file_pth, "r") as f:
-        domain_model = Domain_Model.create_from_json(json.load(f), device)
+        domain_model = Domain_Model.create_from_json(json.load(f))
     return domain_model
