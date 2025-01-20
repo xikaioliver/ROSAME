@@ -128,19 +128,7 @@ class Action_Schema(nn.Module):
                 self.predicates.append(predicate)
                 n_features += n_ground
         n_features = int(n_features)
-
-        self.randn = torch.randn(n_features, 128, device=device, requires_grad=True)
-        self.mlp = nn.Sequential(
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, 4),
-            nn.Softmax(dim=1),
-        )
-        self.mlp.to(device)
+        self.register_buffer("randn", torch.randn(n_features, 128, requires_grad=False))
 
     def forward(self):
         return self.mlp(self.randn)
