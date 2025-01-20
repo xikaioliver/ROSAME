@@ -164,7 +164,7 @@ if __name__ == "__main__":
     # Gather experiment data.
     if args.domain == "grid_blocks":
         block_num = args.block_num
-        domain_model = get_domain_model("blocks", device)
+        domain_model = get_domain_model("blocks")
         cv_model = CVGrid(
             GridConv(digit_class_num=block_num + 1, input_channel=1),
             block_dim=(block_num + 1, block_num),
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         data_transform = RearrangeColumn(block_num)
     elif args.domain == "grid_gripper":
         ball_num = args.ball_num
-        domain_model = get_domain_model("gripper", device)
+        domain_model = get_domain_model("gripper")
         cv_model = CVGrid(
             GridConv(digit_class_num=(ball_num + 1) * 2, input_channel=1),
             block_dim=(4, ball_num),
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         )
         data_transform = RearrangeBalls(ball_num)
     elif args.domain == "grid_logistics":
-        domain_model = get_domain_model("logistics", device)
+        domain_model = get_domain_model("logistics")
         digit_class_num = 35
         cv_model = CVGrid(
             GridConv(digit_class_num=digit_class_num, input_channel=3),
@@ -199,7 +199,7 @@ if __name__ == "__main__":
         )
         data_transform = RearrangeItems()
     elif args.domain == "synth_blocks":
-        domain_model = get_domain_model("blocks", device)
+        domain_model = get_domain_model("blocks")
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
             nn.Linear(512, 512),
@@ -215,7 +215,7 @@ if __name__ == "__main__":
             ]
         )
     elif args.domain == "synth_hanoi":
-        domain_model = get_domain_model("hanoi", device)
+        domain_model = get_domain_model("hanoi")
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
             nn.Linear(512, 512),
@@ -226,7 +226,7 @@ if __name__ == "__main__":
         )
         data_transform = transforms.Resize(64)
     elif args.domain == "synth_8-puzzle":
-        domain_model = get_domain_model("8-puzzle", device)
+        domain_model = get_domain_model("8-puzzle")
         cv_model = torchvision.models.resnet18()
         cv_model.fc = nn.Sequential(
             nn.Linear(512, 512),

@@ -364,6 +364,21 @@ def load_model(file_pth):
         domain_model = Domain_Model.create_from_json(json.load(f))
     return domain_model
 
+
+def get_domain_model(domain):
+    domain_model = load_model(
+        os.path.join(
+            os.path.dirname(__file__), "domains", domain, "domain_model.json"
+        ),
+    )
+    domain_model.ground_from_json(
+        os.path.join(
+            os.path.dirname(__file__), "domains", domain, "objects.json"
+        )
+    )
+    return domain_model
+
+
 def extract_pddl(domain_model, domain_name="default_domain"):
     """
     Generate a PDDL domain file from the trained domain model.
