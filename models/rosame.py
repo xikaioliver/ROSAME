@@ -333,29 +333,28 @@ class Domain_Model(nn.Module):
         )
 
 
-class DomainModelEncoder(JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Type):
-            return {
-                "name": o.name,
-                "parent": o.parent.name if o.parent is not None else None,
-            }
-        elif isinstance(o, Predicate) or isinstance(o, Action_Schema):
-            return {
-                "name": o.name,
-                "params": {param.name: num for param, num in o.params.items()},
-            }
-        elif isinstance(o, Domain_Model):
-            return {
-                "types": o.types,
-                "predicates": o.predicates,
-                "action_schemas": o.action_schemas,
-            }
-        else:
-            return o.__dict__
-
-
 def dump_model(domain_model, file_pth):
+    class DomainModelEncoder(JSONEncoder):
+        def default(self, o):
+            if isinstance(o, Type):
+                return {
+                    "name": o.name,
+                    "parent": o.parent.name if o.parent is not None else None,
+                }
+            elif isinstance(o, Predicate) or isinstance(o, Action_Schema):
+                return {
+                    "name": o.name,
+                    "params": {param.name: num for param, num in o.params.items()},
+                }
+            elif isinstance(o, Domain_Model):
+                return {
+                    "types": o.types,
+                    "predicates": o.predicates,
+                    "action_schemas": o.action_schemas,
+                }
+            else:
+                return o.__dict__
+
     with open(file_pth, "w") as f:
         f.write(json.dumps(domain_model, cls=DomainModelEncoder, indent=4))
 
