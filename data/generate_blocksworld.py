@@ -1,4 +1,4 @@
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, run
 import numpy as np
 import numpy.random as npr
 import random
