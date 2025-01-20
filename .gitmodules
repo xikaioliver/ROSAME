@@ -1,0 +1,3 @@
+[submodule "data/blocks-world-generator-and-planner"]
+	path = data/blocks-world-generator-and-planner
+	url = https://gitlab.com/thiebaux/blocks-world-generator-and-planner.git
