@@ -406,9 +406,9 @@ def extract_pddl(domain_model, domain_name="default_domain"):
         type_definitions = []
         for parent, children in type_hierarchy.items():
             if parent == "object":
-                type_definitions.append(" ".join(children))
+                type_definitions.append("    " + " ".join(children))
             else:
-                type_definitions.append(f"{' '.join(children)} - {parent}")
+                type_definitions.append(f"    {' '.join(children)} - {parent}")
         return "\n        " + "\n        ".join(type_definitions)
 
     def format_predicates(predicates):
@@ -416,7 +416,7 @@ def extract_pddl(domain_model, domain_name="default_domain"):
         predicate_strings = []
         for p in predicates:
             params = " ".join([f"?{chr(97 + i)} - {t.name}" for i, t in enumerate(p.params_types)])
-            predicate_strings.append(f"({p.name} {params})")
+            predicate_strings.append(f"    ({p.name} {params})")
         return "\n        " + "\n        ".join(predicate_strings)
 
     def format_actions(action_schemas):
