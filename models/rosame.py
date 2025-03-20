@@ -415,8 +415,13 @@ def extract_pddl(domain_model, domain_name="default_domain"):
         """Format predicates into PDDL predicates definition."""
         predicate_strings = []
         for p in predicates:
-            params = " ".join([f"?{chr(97 + i)} - {t.name}" for i, t in enumerate(p.params_types)])
-            predicate_strings.append(f"    ({p.name} {params})")
+            var = {}
+            n = 0
+            for param_type in p.params_types:
+                var[param_type] = list(string.ascii_lowercase)[n: n + p.params[param_type]]
+                n += p.params[param_type]
+            parameters = " ".join([f"?{v} - {t.name}" for t in var for v in var[t]])
+            predicate_strings.append(f"    ({p.name} {parameters})")
         return "\n        " + "\n        ".join(predicate_strings)
 
     def format_actions(action_schemas):
