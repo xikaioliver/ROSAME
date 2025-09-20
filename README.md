@@ -130,7 +130,7 @@ All scripts below that generate syntehsized visual traces are based on [PDDLGym]
 ## Citation
 Please use this bibtex if you want to cite this repository in your publications:
 ```
-@inproceedings{silver2020pddlgym,
+@inproceedings{rosame,
   author    = {Kai Xi and Stephen Gould and Sylvie Thi{\'{e}}baux},
   title     = {Neuro-Symbolic Learning of Lifted Action Models from Visual Traces},
   booktitle = {Proceedings of the Thirty-Fourth International Conference on Automated Planning and Scheduling, {ICAPS} 2024, Banff, Alberta, Canada, June 1-6, 2024},
