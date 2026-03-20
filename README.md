@@ -1,7 +1,9 @@
 # ROSAME: a neu**RO**-**S**ymbolic **A**ction **M**odel l**E**arner
 
 ## Paper
-This repository holds codes for our paper in ICAPS 2024: [Neuro-Symbolic Learning of Lifted Action Models from Visual Traces](https://users.cecs.anu.edu.au/~thiebaux/papers/icaps24-rosame.pdf).
+This repository holds codes for the following papers:  
+[Neuro-Symbolic Learning of Lifted Action Models from Visual Traces](https://users.cecs.anu.edu.au/~thiebaux/papers/icaps24-rosame.pdf).  
+[Learning Lifted Action Models from Unsupervised Visual Traces].
 
 ## Use ROSAME as a PyTorch module
 We implement ROSAME as a PyTorch module that can be plugged into any other deep learning networks.
@@ -128,13 +130,19 @@ All scripts below that generate syntehsized visual traces are based on [PDDLGym]
 `python train.py --domain synth_8-puzzle --gamma 10 --lambda_ 0.4 --epochs 300 --dataset_pth data/data --trace_num 300 --trace_len 5` 
 
 ## Citation
-Please use this bibtex if you want to cite this repository in your publications:
 ```
-@inproceedings{rosame,
+@inproceedings{xgt:24,
   author    = {Kai Xi and Stephen Gould and Sylvie Thi{\'{e}}baux},
   title     = {Neuro-Symbolic Learning of Lifted Action Models from Visual Traces},
-  booktitle = {Proceedings of the Thirty-Fourth International Conference on Automated Planning and Scheduling, {ICAPS} 2024, Banff, Alberta, Canada, June 1-6, 2024},
+  booktitle = {Proceedings of the 34th International Conference on Automated Planning and Scheduling ({ICAPS}-24)},
   year      = {2024},
-  url       = {https://gitlab.com/xikaioliver2/ROSAME},
+  pages     = {653-662}
 }
 ```
+```
+@inproceedings{xgt:26,
+  author    = {Kai Xi and Stephen Gould and Sylvie Thi{\'{e}}baux},
+  title     = {Learning Lifted Action Models from Unsupervised Visual Traces},
+  booktitle = {Proceedings of the 36th International Conference on Automated Planning and Scheduling, ({ICAPS}-26)},
+  year      = {2026}
+}
