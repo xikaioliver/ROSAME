@@ -2,8 +2,9 @@
 
 ## Paper
 This repository holds codes for the following papers:  
-[Neuro-Symbolic Learning of Lifted Action Models from Visual Traces](https://users.cecs.anu.edu.au/~thiebaux/papers/icaps24-rosame.pdf).  
-[Learning Lifted Action Models from Unsupervised Visual Traces].
+
+1.[Neuro-Symbolic Learning of Lifted Action Models from Visual Traces](https://ojs.aaai.org/index.php/ICAPS/article/view/31528). Xi, Gould, Thiébaux. ICAPS 2024.  
+2.[Learning Lifted Action Models from Unsupervised Visual Traces](https://arxiv.org/abs/2604.19043). Xi, Gould, Thiébaux. ICAPS 2026
 
 ## Use ROSAME as a PyTorch module
 We implement ROSAME as a PyTorch module that can be plugged into any other deep learning networks.
