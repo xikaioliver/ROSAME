@@ -1,0 +1,14 @@
+{
+  "name": "hanoi",
+  "types": [
+    {"name": "object","parent": null}
+  ],
+  "predicates": [
+    {"name": "clear","types": ["object"]},
+    {"name": "on","types": ["object","object"]},
+    {"name": "smaller","types": ["object","object"]}
+  ],
+  "action_schemas": [
+    {"name": "move","types": ["object","object","object"]}
+  ]
+}

@@ -1,0 +1,43 @@
+{
+    "types": [
+        {
+            "name": "object",
+            "parent": null
+        },
+        {
+            "name": "disc",
+            "parent": "object"
+        }
+    ],
+    "predicates": [
+        {
+            "name": "clear",
+            "params": {
+                "object": 1
+            }
+        },
+        {
+            "name": "on",
+            "params": {
+                "disc": 1,
+                "object": 1
+            }
+        },
+        {
+            "name": "smaller",
+            "params": {
+                "disc": 1,
+                "object": 1
+            }
+        }
+    ],
+    "action_schemas": [
+        {
+            "name": "move",
+            "params": {
+                "disc": 1,
+                "object": 2
+            }
+        }
+    ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "logistics",
+  "types": [
+    {"name": "movable", "parent": "object"},
+    {"name": "location", "parent": "object"},
+    {"name": "city", "parent": "object"},
+    {"name": "obj", "parent": "movable"},
+    {"name": "transport", "parent": "movable"},
+    {"name": "truck", "parent": "transport"},
+    {"name": "airplane", "parent": "transport"},
+    {"name": "airport", "parent": "location"}
+  ],
+  "predicates": [
+    {"name": "at", "types": ["movable", "location"]},
+    {"name": "in", "types": ["obj", "transport"]},
+    {"name": "in-city", "types": ["location", "city"]}
+  ],
+  "action_schemas": [
+    {"name": "load-truck", "types": ["obj", "truck", "location"]},
+    {"name": "load-airplane", "types": ["obj", "airplane", "airport"]},
+    {"name": "unload-truck", "types": ["obj", "truck", "location"]},
+    {"name": "unload-airplane", "types": ["obj", "airplane", "airport"]},
+    {"name": "drive-truck", "types": ["truck", "location", "location", "city"]},
+    {"name": "fly-airplane", "types": ["airplane", "airport", "airport"]}
+  ]
+}

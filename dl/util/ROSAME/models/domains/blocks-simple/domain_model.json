@@ -1,0 +1,48 @@
+{
+    "types": [
+        {
+            "name": "object",
+            "parent": null
+        }
+    ],
+    "predicates": [
+        {
+            "name": "clear",
+            "params": {
+                "object": 1
+            }
+        },
+        {
+            "name": "on-table",
+            "params": {
+                "object": 1
+            }
+        },
+        {
+            "name": "on",
+            "params": {
+                "object": 2
+            }
+        }
+    ],
+    "action_schemas": [
+        {
+            "name": "move-to-block",
+            "params": {
+                "object": 2
+            }
+        },
+        {
+            "name": "move-to-table",
+            "params": {
+                "object": 2
+            }
+        },
+        {
+            "name": "move-block",
+            "params": {
+                "object": 3
+            }
+        }
+    ]
+}

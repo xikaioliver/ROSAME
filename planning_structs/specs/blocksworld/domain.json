@@ -1,0 +1,19 @@
+{
+  "name": "blocksworld",
+  "types": [
+    {"name": "object", "parent": null}
+  ],
+  "predicates": [
+    {"name": "arm-empty", "types": []},
+    {"name": "clear", "types": ["object"]},
+    {"name": "on-table", "types": ["object"]},
+    {"name": "holding", "types": ["object"]},
+    {"name": "on", "types": ["object", "object"]}
+  ],
+  "action_schemas": [
+    {"name": "pickup", "types": ["object"]},
+    {"name": "putdown", "types": ["object"]},
+    {"name": "stack", "types": ["object", "object"]},
+    {"name": "unstack", "types": ["object", "object"]}
+  ]
+}

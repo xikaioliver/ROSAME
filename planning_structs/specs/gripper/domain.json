@@ -1,0 +1,20 @@
+{
+  "name": "gripper",
+  "types": [
+    {"name": "object", "parent": null},
+    {"name": "ball", "parent": "object"},
+    {"name": "room", "parent": "object"},
+    {"name": "gripper", "parent": "object"}
+  ],
+  "predicates": [
+    {"name": "at-robby", "types": ["room"]},
+    {"name": "at", "types": ["ball", "room"]},
+    {"name": "free", "types": ["gripper"]},
+    {"name": "carry", "types": ["ball", "gripper"]}
+  ],
+  "action_schemas": [
+    {"name":  "move", "types": ["room", "room"]},
+    {"name":  "pick", "types": ["ball", "room", "gripper"]},
+    {"name":  "drop", "types": ["ball", "room", "gripper"]}
+  ]
+}
