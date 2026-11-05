@@ -131,8 +131,7 @@ The code used for each paper is kept unchanged on its own branch and tag:
 | Learning Lifted Action Models from Unsupervised Visual Traces (ICAPS 2026) | `paper/icaps26` | `icaps26` |
 
 The `icaps24` tag marks the code exactly as published; the `paper/icaps24` branch also contains
-later fixes. The branch `ROSAME+MILP` holds the same code as `paper/icaps26` and is kept so that
-existing links keep working.
+later fixes.
 
 ## Citation
 
