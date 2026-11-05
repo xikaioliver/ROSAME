@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use ROSAME, please cite the paper below."
+title: "ROSAME"
+type: software
+authors:
+  - family-names: Xi
+    given-names: Kai
+  - family-names: Gould
+    given-names: Stephen
+  - family-names: "Thiébaux"
+    given-names: Sylvie
+repository-code: "https://github.com/xikaioliver/ROSAME"
+version: 0.1.0
+preferred-citation:
+  type: conference-paper
+  title: "Neuro-Symbolic Learning of Lifted Action Models from Visual Traces"
+  authors:
+    - family-names: Xi
+      given-names: Kai
+    - family-names: Gould
+      given-names: Stephen
+    - family-names: "Thiébaux"
+      given-names: Sylvie
+  collection-title: "Proceedings of the 34th International Conference on Automated Planning and Scheduling (ICAPS-24)"
+  year: 2024
+  start: 653
+  end: 662

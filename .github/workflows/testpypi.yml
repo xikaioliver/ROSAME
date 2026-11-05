@@ -1,0 +1,27 @@
+name: TestPyPI dry run
+
+# Started by hand (Actions tab -> "TestPyPI dry run" -> Run workflow) to rehearse a release on
+# test.pypi.org. Configure a trusted publisher there once (project "rosame", workflow
+# "testpypi.yml", environment "testpypi"). TestPyPI rejects re-uploading a version, so bump the
+# version (e.g. 0.1.0rc1, 0.1.0rc2) between rehearsals.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

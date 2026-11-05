@@ -1,137 +1,142 @@
-# ROSAME: a neu**RO**-**S**ymbolic **A**ction **M**odel l**E**arner
+# ROSAME
 
-## Paper
-This repository holds codes for the following papers:  
+**ROSAME** learns lifted STRIPS action models (the preconditions and effects of every action schema)
+from traces of states and actions. States may be **probabilistic** (each proposition true with some
+probability, for example the output of a classifier or a noisy sensor) as well as symbolic, and the
+model is a PyTorch module, so it can be trained jointly with a perception network end to end.
 
-1.[Neuro-Symbolic Learning of Lifted Action Models from Visual Traces](https://ojs.aaai.org/index.php/ICAPS/article/view/31528). Xi, Gould, Thiébaux. ICAPS 2024.  
-2.[Learning Lifted Action Models from Unsupervised Visual Traces](https://arxiv.org/abs/2604.19043). Xi, Gould, Thiébaux. ICAPS 2026
+- Learns from traces whose **object sets differ** and whose **lengths differ**, batched on CPU or GPU.
+- Robust to noise: the learned model is a probability over roles for every lifted literal.
+- Reads PDDL domains and problems, and writes learned models as PDDL or JSON.
+- Depends only on PyTorch.
 
-## Use ROSAME as a PyTorch module
-We implement ROSAME as a PyTorch module that can be plugged into any other deep learning networks.
+ROSAME was introduced in *Neuro-Symbolic Learning of Lifted Action Models from Visual Traces*
+(Xi, Gould and Thiébaux, ICAPS 2024).
 
-### Create a domain model
-```python
-# Create a model for the Gripper domain.
-from models.rosame import *
+## Installation
 
-# Define all the types in the domain.
-base = Type("object", None)
-room = Type("room", base)
-ball = Type("ball", base)
-gripper = Type("gripper", base)
-
-# A Domain model requires a list of types, a list of predicates, a list of action schemas, and a device (optional).
-domain_model = Domain_Model(
-    [
-        room,
-        ball,
-        gripper,
-    ],
-    [
-        # A predicate requires a name and a signature (mapping types to numbers of arguments).
-        Predicate("at-robby", {room: 1}),
-        Predicate("at", {ball: 1, room: 1}),
-        Predicate("free", {gripper: 1}),
-        Predicate("carry", {ball: 1, gripper: 1}),
-    ],
-    [
-        # An action schema requires a name and a signature (mapping types to numbers of arguments).
-        Action_Schema("move", {room: 2}),
-        Action_Schema("pick", {ball: 1, room: 1, gripper: 1}),
-        Action_Schema("drop", {ball: 1, room: 1, gripper: 1}),
-    ],
-    device=torch.device("cuda"),
-)
-
-# Alternatively, a domain model can be created from a supplied JSON file.
-# domain_model = load_model("models/domains/gripper/domain_model.json", device=torch.device("cuda"))
+```bash
+pip install rosame
 ```
 
-### Ground the domain model
-```python
-# A domain model must be grounded on a set of objects before use. 
-# Note that domain models can be regrounded on different sets of objects. This will not affect the learned lifted model.
-# Objects are supplied in the form of a dictionary mapping each type to a list of objects of the type.
-objects = {
-    room: ["rooma", "roomb"],
-    ball: ["ball1", "ball2", "ball3", "ball4", "ball5", "ball6"],
-    gripper: ["left", "right"],
-}
-domain_model.ground(objects)
+ROSAME needs PyTorch 2.0 or later. To use a GPU, install the PyTorch build for your platform first,
+following [pytorch.org](https://pytorch.org/get-started/locally/).
 
-# Alternatively, a domain model can be grounded from a supplied JSON file describing the objects.
-# domain_model.ground_from_json("models/domains/gripper/objects.json")
+## Quickstart
+
+```python
+import rosame
+from rosame import Trace
+
+# 1. The domain: types, predicates and action signatures. Preconditions and effects are what we learn,
+#    so the PDDL may leave them empty (any present are ignored for learning).
+pddl = rosame.io.read_pddl_domain("""
+(define (domain switches)
+  (:requirements :strips :typing)
+  (:types switch - device room device)
+  (:predicates (powered) (robot-at ?r - room) (in ?d - device ?r - room) (connected ?a ?b - room)
+               (on ?s - switch) (off ?s - switch))
+  (:action move     :parameters (?from ?to - room)       :precondition (and) :effect (and))
+  (:action turn-on  :parameters (?s - switch ?r - room)  :precondition (and) :effect (and))
+  (:action turn-off :parameters (?s - switch ?r - room)  :precondition (and) :effect (and)))
+""")
+
+# 2. Traces: objects, T + 1 states and T actions. Each trace may use different objects.
+static = ["(powered)", "(in s1 r2)", "(connected r1 r2)", "(connected r2 r3)", "(connected r3 r1)"]
+traces = [
+    Trace(objects=[("r1", "room"), ("r2", "room"), ("r3", "room"), ("s1", "switch")],
+          states=[static + ["(robot-at r1)", "(off s1)"],
+                  static + ["(robot-at r2)", "(off s1)"],
+                  static + ["(robot-at r2)", "(on s1)"],
+                  static + ["(robot-at r2)", "(off s1)"]],
+          actions=["(move r1 r2)", "(turn-on s1 r2)", "(turn-off s1 r2)"]),
+    # ... more traces, with other rooms and switches
+]
+
+# 3. Learn, then inspect or save the model.
+result = rosame.learn(pddl.domain, traces)
+print(result.action_model)
+result.model.to_pddl(pddl_domain=pddl, path="learned.pddl")    # keeps your parameter names
 ```
 
-### Use the domain model
+States can be given as sets of true atoms (above), as `{atom: probability}` dictionaries, or as
+tensors of probabilities over the trace's propositions:
+
 ```python
-# Get a list of predicates
-domain_model.predicates
-# Get a list of action schemas
-domain_model.action_schemas
-# We maintain an order of propositions.
-# Get a dictionary mapping each proposition name to its index in the order.
-domain_model.propositions
-# We maintain an order of actions.
-# Get a dictionary mapping each action name to its index in the order.
-domain_model.actions
+Trace(objects, states=[{"(robot-at r1)": 0.94, "(on s1)": 0.12, "(off s1)": 0.85}, ...], actions=[...])
 ```
 
-### Infer with ROSAME
+## Three ways to use ROSAME
+
+The package is layered; use the level that fits your project.
+
+**1. `rosame.learn`**: train on traces in one call (above). Options cover the loss
+hyperparameters, early stopping, device and memory budget; see the [user guide](docs/user_guide.md).
+
+**2. Your own training loop** with the building blocks, for example to train a perception model
+jointly. The grounder turns a batch of traces with different object sets into index tensors; ROSAME
+grounds the whole batch at once; `ROSAMELoss` is the objective of the paper.
+
 ```python
-# The build() function expect a list of action indices (can be found by querying domain_model.actions with the action names)
-# It returns the (grounded) preconditions, add and delete effects of the actions.
-precon, addeff, deleff = domain_model.build([0, 1, 2])
+from rosame import Grounder, ROSAME, ROSAMELoss
+
+grounder, model = Grounder(domain), ROSAME(domain)
+loss_fn = ROSAMELoss(prior_weight=0.2, endpoint_weight=1.0, reduction="transition")
+optimizer = torch.optim.Adam(list(model.parameters()) + list(perception.parameters()), lr=1e-3)
+
+batch = grounder.collate(objects_per_trace, actions_per_trace)      # in your DataLoader's collate_fn
+states = perception(images)                                          # [B, T + 1, P_max] probabilities
+pre, add, dele = model(batch)                                        # [B, T, P_max], padding is 0
+loss = loss_fn(pre, add, dele, states[:, :-1], states[:, 1:], batch)
+loss.backward(); optimizer.step()
 ```
 
-### Print the action model
-```python
-for schema in domain_model.action_schemas:
-    schema.pretty_print()
-    print("----------------------------")
-```
+**3. The model alone.** `ROSAME(batch)` returns grounded precondition / add / delete probabilities for
+every proposition of every transition. Use any objective you like.
 
-## Create Visual Traces
-We include all our data creation scripts. The scripts can be run in the data folder.
+## Data formats
 
-**Blocks World (grid world)**  
-This script requires [Blocks World Generator and Planner](https://gitlab.com/thiebaux/blocks-world-generator-and-planner) (Slaney and Thiebaux 2001) as a prerequisite.  
-`python generate_blocksworld.py -o 5 -t 800 -l 10 -s data`
+| | Form |
+|---|---|
+| objects | `[("r1", "room"), ("s1", "switch"), ...]`, including any domain constants the states use |
+| atom | `"(in s1 r2)"`, `"in s1 r2"`, `("in", "s1", "r2")` or `("in", ("s1", "r2"))` |
+| state | iterable of true atoms, `{atom: probability}`, or a tensor `[P]` |
+| action | an atom-like call such as `"(move r1 r2)"`, or `None` for an unknown action (that step is skipped) |
+| proposition order | `Grounder(domain).instance(objects).propositions`, needed only for tensor states |
 
-**Gripper (grid world)**  
-This script requires [MACQ](https://github.com/AI-Planning/macq) (Callanan et al. 2022), which can be installed with `pip install macq`.  
-`python generate_gripper.py -b 6 -t 1000 -l 5 --skip 1 -s data`
+Traces can be stored as JSON lines (`rosame.io.read_traces_jsonl` / `write_traces_jsonl`), and
+domains as PDDL or as a JSON specification (`rosame.io.read_domain_json`).
 
-**Logistics (grid world)**  
-This script also requires macq.  
-`python generate_logistics.py --num_packages 6 -t 3000 -l 10 --skip 1 -s data`
+## What ROSAME assumes
 
-**Blocks World (synthesized)**  
-All scripts below that generate syntehsized visual traces are based on [PDDLGym](https://github.com/tomsilver/pddlgym) (Silver and Chitnis 2020).  
-`python generate_blocksworld_pddlgym.py -s data`
+STRIPS with typing: positive preconditions, add and delete effects, and every literal of an action
+schema refers only to the action's parameters (no constants), each parameter bound to a distinct
+object. A literal plays exactly one of four roles: none, add effect, precondition, or precondition
+and delete effect. Transitions whose action repeats an object are skipped. The
+[user guide](docs/user_guide.md) explains these assumptions and their consequences in detail.
 
-**Towers of Hanoi (synthesized)**  
-`python generate_hanoi_pddlgym.py -s data`
+## Documentation
 
-**Slide/8-puzzle (synthesized)**  
-`python generate_slide_pddlgym.py -s data`
+- [User guide](docs/user_guide.md): concepts, data, batching, the loss and its hyperparameters,
+  learning options, PDDL/JSON input and output, joint training with perception, troubleshooting.
+- [Changelog](CHANGELOG.md) and [contributing guide](CONTRIBUTING.md).
 
-## Training ROSAME-I on Visual Traces
-**Blocks World (grid world)**    
-`python train.py --domain grid_blocks --gamma 10 --lambda_ 0.2 --epochs 200 --dataset_pth data/data --trace_num 800 --trace_len 10`  
-**Gripper (grid world)**  
-`python train.py --domain grid_gripper --gamma 10 --lambda_ 0.2 --epochs 100 --dataset_pth data/data --trace_num 1000 --trace_len 5`  
-**Logistics (grid world)**  
-`python train.py --domain grid_logistics --gamma 10 --lambda_ 0.2 --epochs 150 --dataset_pth data/data --trace_num 2500 --trace_len 10`  
-**Blocks World (synthesized)**  
-`python train.py --domain synth_block --gamma 10 --lambda_ 0.2 --epochs 100 --dataset_pth data/data --trace_num 100 --trace_len 10`  
-**Towers of Hanoi (synthesized)**  
-`python train.py --domain synth_hanoi --gamma 10 --lambda_ 0.2 --epochs 70 --dataset_pth data/data --trace_num 70 --trace_len 5`  
-**Slide/8-puzzle (synthesized)**  
-`python train.py --domain synth_8-puzzle --gamma 10 --lambda_ 0.4 --epochs 300 --dataset_pth data/data --trace_num 300 --trace_len 5` 
+## Code for the papers
+
+The code used for each paper is kept unchanged on its own branch and tag:
+
+| Paper | Branch | Tag |
+|---|---|---|
+| Neuro-Symbolic Learning of Lifted Action Models from Visual Traces (ICAPS 2024) | `paper/icaps24` | `icaps24` |
+| Learning Lifted Action Models from Unsupervised Visual Traces (ICAPS 2026) | `paper/icaps26` | `icaps26` |
+
+The `icaps24` tag marks the code exactly as published; the `paper/icaps24` branch also contains
+later fixes. The branch `ROSAME+MILP` holds the same code as `paper/icaps26` and is kept so that
+existing links keep working.
 
 ## Citation
-```
+
+```bibtex
 @inproceedings{xgt:24,
   author    = {Kai Xi and Stephen Gould and Sylvie Thi{\'{e}}baux},
   title     = {Neuro-Symbolic Learning of Lifted Action Models from Visual Traces},
@@ -139,11 +144,15 @@ All scripts below that generate syntehsized visual traces are based on [PDDLGym]
   year      = {2024},
   pages     = {653-662}
 }
-```
-```
+
 @inproceedings{xgt:26,
   author    = {Kai Xi and Stephen Gould and Sylvie Thi{\'{e}}baux},
   title     = {Learning Lifted Action Models from Unsupervised Visual Traces},
   booktitle = {Proceedings of the 36th International Conference on Automated Planning and Scheduling, ({ICAPS}-26)},
   year      = {2026}
 }
+```
+
+## License
+
+See [LICENSE](LICENSE).
