@@ -103,10 +103,10 @@ every proposition of every transition. Use any objective you like.
 | | Form |
 |---|---|
 | objects | `[("r1", "room"), ("s1", "switch"), ...]`, including any domain constants the states use |
-| atom | `"(in s1 r2)"`, `"in s1 r2"`, `("in", "s1", "r2")` or `("in", ("s1", "r2"))` |
-| state | iterable of true atoms, `{atom: probability}`, or a tensor `[P]` |
-| action | an atom-like call such as `"(move r1 r2)"`, or `None` for an unknown action (that step is skipped) |
-| proposition order | `Grounder(domain).instance(objects).propositions`, needed only for tensor states |
+| atom | `"(in s1 r2)"`, `"in s1 r2"`, `("in", "s1", "r2")`, `("in", ("s1", "r2"))`, or a `planning_structs.Proposition` |
+| state | iterable of true atoms, `{atom: probability}`, or a vector of probabilities |
+| action | an atom-like call such as `"(move r1 r2)"`, a `planning_structs.Action`, an integer, or `None` for an unknown action (that step is skipped) |
+| your own order | vectors and integers follow the package's order (`Grounder(domain).instance(objects)`), or name their own with `Trace(..., proposition_order=..., action_order=...)` |
 
 Traces can be stored as JSON lines (`rosame.io.read_traces_jsonl` / `write_traces_jsonl`), and
 domains as PDDL or as a JSON specification (`rosame.io.read_domain_json`).

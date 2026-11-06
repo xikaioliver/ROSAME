@@ -6,6 +6,30 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
+Data in its own order, and planning objects as inputs. Everything is optional: existing code and
+learned results are unchanged.
+
+### Added
+- Traces may declare the order of their data (`planning_structs.Trace.proposition_order` and
+  `action_order`, from `planning-structs` 0.2.0): vector states are reordered into the package's
+  proposition order, and integer actions are looked up in the trace's own action list. Duplicates
+  are errors; propositions the order does not name are errors unless
+  `learn(..., missing_propositions="zero")`; atoms without a proposition are dropped with a warning.
+- `Grounder.reorderer(objects, proposition_order)`: a differentiable reordering (and its inverse) of
+  the last dimension of tensors, e.g. for a perception network that keeps its own output order.
+- `Grounder.action_index_map(objects, action_order)`: maps a data's own action indices to
+  `Instance.actions` indices (-1 for actions that repeat an object).
+- `Grounder.collate(..., action_orders=...)` and `Grounder.ground_index`.
+- `planning_structs.Action` and `Proposition` objects are accepted wherever actions and atoms are.
+- `learn` accepts integer actions (indices into `action_order`, or into `Instance.actions`).
+- JSON-lines traces may store vector states with `"proposition_order"` and integer actions with
+  `"action_order"`.
+
+### Changed
+- Requires `planning-structs>=0.2.0,<0.3`.
+
 ## [0.2.0] - 2026-11-06
 
 The planning structures now live in their own package,
