@@ -15,10 +15,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-from rosame.planning_structs.action_model import ActionModel
-from rosame.planning_structs.domain import Domain
+from planning_structs.action_model import ActionModel
+from planning_structs.domain import Domain
 
 Atom = Tuple[str, Tuple[str, ...]]
 Source = Union[str, Path]

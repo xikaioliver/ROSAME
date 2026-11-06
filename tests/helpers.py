@@ -14,7 +14,7 @@ from typing import List, Tuple
 
 import torch
 
-from rosame import ActionModel, Domain, Trace
+from planning_structs import ActionModel, Domain, Trace
 
 
 def fixture_domain() -> Domain:
@@ -116,7 +116,7 @@ def switches_traces(rng: random.Random, n: int, lengths=(3, 8)):
 
 def random_actions(domain: Domain, objects, rng: random.Random, n: int):
     """n random grounded actions (distinct, type-compatible objects), as (name, args)."""
-    from rosame import Instance
+    from planning_structs import Instance
     acts = Instance(domain, objects).actions
     return [(a.action_schema.name, tuple(o.name for o in a.args)) for a in (rng.choice(acts) for _ in range(n))]
 

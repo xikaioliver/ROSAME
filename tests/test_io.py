@@ -2,7 +2,8 @@ import pytest
 import torch
 from helpers import SWITCHES_PDDL, reference_action_model, switches_domain
 
-from rosame import Grounder, Trace
+from planning_structs import Trace
+from rosame import Grounder
 from rosame.io import (read_action_model_json, read_domain_json, read_objects_json, read_pddl_domain, read_pddl_problem,
                        read_traces_jsonl, write_action_model_json, write_domain_json, write_objects_json, write_pddl,
                        write_traces_jsonl)

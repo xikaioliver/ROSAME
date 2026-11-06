@@ -5,7 +5,7 @@ High-level learning: give a domain and traces, get a trained ROSAME and its disc
     result = rosame.learn(domain, traces)
     print(result.to_pddl())
 
-Traces may use different object sets and have different lengths. States may be symbolic (sets of
+Traces (planning_structs.Trace) may use different object sets and have different lengths. States may be symbolic (sets of
 true atoms) or probabilistic (probabilities per proposition, e.g. from a classifier or noisy
 sensors), which is what ROSAME is designed for. Everything here is a thin layer over the public
 building blocks (Grounder, ROSAME, ROSAMELoss); write your own loop with those to customise
@@ -24,26 +24,10 @@ import torch
 from rosame.grounding import GroundedBatch, Grounder
 from rosame.losses import ROSAMELoss
 from rosame.model import ROSAME
-from rosame.planning_structs.action_model import ActionModel
-from rosame.planning_structs.domain import Domain
+from planning_structs.action_model import ActionModel
+from planning_structs.domain import Domain
+from planning_structs.trace import Trace
 from rosame.utils import stack_padded
-
-
-@dataclass
-class Trace:
-    """One trace of T transitions.
-
-    objects  [(name, type), ...]: every object the states and actions mention, including domain
-             constants.
-    states   T + 1 states: a tensor [T + 1, P] of probabilities in the proposition order of
-             Grounder(domain).propositions(objects) (= Instance(domain, objects).propositions), or a
-             list whose items are each an iterable of true atoms or a dict {atom: probability}.
-    actions  T action calls, e.g. "(move r1 r2)" or ("move", "r1", "r2"); None marks an unknown action
-             (that transition is ignored).
-    """
-    objects: Sequence[Tuple[str, str]]
-    states: Any
-    actions: Sequence[Any]
 
 
 @dataclass

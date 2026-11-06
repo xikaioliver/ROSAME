@@ -32,8 +32,8 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
 
-from rosame.planning_structs.action_model import ActionModel
-from rosame.planning_structs.domain import Domain
+from planning_structs.action_model import ActionModel
+from planning_structs.domain import Domain
 
 Source = Union[str, Path]
 
@@ -106,7 +106,7 @@ def read_action_model_json(path: Source, domain: Domain) -> ActionModel:
 # ----- traces -----
 
 def read_traces_jsonl(path: Source):
-    from rosame.learn import Trace
+    from planning_structs import Trace
     traces = []
     for k, line in enumerate(Path(path).read_text().splitlines()):
         if not line.strip():

@@ -58,7 +58,7 @@ domain = pddl.domain
 
 `pddl` also keeps the requirements, types, constants and parameter names, so a learned model can be
 written back in the same shape (section 8). If the file does contain preconditions and effects,
-`pddl.action_model` holds them as a `rosame.ActionModel`, which is handy for comparing a learned
+`pddl.action_model` holds them as a `planning_structs.ActionModel`, which is handy for comparing a learned
 model with a reference.
 
 From a JSON specification:
@@ -79,16 +79,20 @@ domain = rosame.io.read_domain_json("domain.json")
 Or in Python:
 
 ```python
-domain = rosame.Domain(types=[("room", None), ("device", None), ("switch", "device")],
-                       predicates=[("robot-at", ["room"]), ("in", ["device", "room"]), ("on", ["switch"])],
-                       action_schemas=[("move", ["room", "room"]), ("turn-on", ["switch", "room"])],
-                       name="switches")
+from planning_structs import Domain
+
+domain = Domain(types=[("room", None), ("device", None), ("switch", "device")],
+                predicates=[("robot-at", ["room"]), ("in", ["device", "room"]), ("on", ["switch"])],
+                action_schemas=[("move", ["room", "room"]), ("turn-on", ["switch", "room"])],
+                name="switches")
 ```
 
 ## 3. Traces
 
 ```python
-rosame.Trace(objects, states, actions)
+from planning_structs import Trace
+
+Trace(objects, states, actions)
 ```
 
 **objects**: `[(name, type), ...]`. Include every object that states or actions mention, including
@@ -142,7 +146,7 @@ result = rosame.learn(domain, traces)
 `result` is a `LearnResult`:
 
 - `result.model`: the trained `ROSAME`;
-- `result.action_model`: the discrete model (most likely role of every slot), a `rosame.ActionModel`;
+- `result.action_model`: the discrete model (most likely role of every slot), a `planning_structs.ActionModel`;
 - `result.to_pddl(...)`: the model as PDDL (section 8);
 - `result.history`: the loss and its terms over training;
 - `result.stats`: data coverage: transitions used and skipped, transitions per action schema,
@@ -278,7 +282,7 @@ the rest. If the first and last states of each trace are known, feed them as giv
 ```python
 model.role_probabilities()      # [N, 4] probabilities of ROLES for each slot in model.triples
 model.learned_roles()           # [N] most likely role per slot
-model.action_model()            # rosame.ActionModel built from the most likely roles
+model.action_model()            # planning_structs.ActionModel built from the most likely roles
 print(model.action_model())     # readable summary
 ```
 

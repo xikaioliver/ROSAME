@@ -16,7 +16,7 @@ each trace are padded to the largest count in the batch, and traces to the longe
 `step_mask` mark what is real.
 
 Only the actions that occur are grounded, so object sets with very many possible groundings are
-fine. Proposition order follows rosame.planning_structs.Instance and depends only on the sequence of
+fine. Proposition order follows planning_structs.Instance and depends only on the sequence of
 object types (the object-set *signature*), so tables are cached per signature.
 
 Atoms, actions and states can be given in several forms:
@@ -29,12 +29,12 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, fields
-from typing import Dict, Iterable, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import torch
 
-from rosame.planning_structs.domain import ActionSchema, Domain, Predicate
-from rosame.planning_structs.instance import Instance
+from planning_structs.domain import ActionSchema, Domain, Predicate
+from planning_structs.instance import Instance
 
 Signature = Tuple[str, ...]
 ObjectsLike = Union[Instance, Sequence[Tuple[str, str]]]

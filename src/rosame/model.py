@@ -26,9 +26,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from rosame.grounding import GroundedBatch, Grounder, lifted_slots, schema_triple_table
-from rosame.planning_structs.action_model import ActionModel
-from rosame.planning_structs.domain import ActionSchema, Domain, Predicate
-from rosame.planning_structs.instance import Instance
+from planning_structs.action_model import ActionModel
+from planning_structs.domain import ActionSchema, Domain, Predicate
+from planning_structs.instance import Instance
 
 ROLES = ("none", "add", "pre", "pre+del")
 Triple = Tuple[ActionSchema, Predicate, Tuple[int, ...]]
