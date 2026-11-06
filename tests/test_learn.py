@@ -6,7 +6,8 @@ import torch
 from helpers import reference_action_model, same_model, switches_domain, switches_traces
 
 import rosame
-from rosame import Grounder, ROSAMELoss, Trace, learn
+from planning_structs import Trace
+from rosame import Grounder, ROSAMELoss, learn
 
 pytestmark = pytest.mark.slow
 FAST = dict(epochs=800, min_epochs=100, patience=100)

@@ -22,11 +22,15 @@ pip install rosame
 ROSAME needs PyTorch 2.0 or later. To use a GPU, install the PyTorch build for your platform first,
 following [pytorch.org](https://pytorch.org/get-started/locally/).
 
+The planning structures (`Domain`, `Instance`, `ActionModel`, `Trace`, ...) come from
+[`planning-structs`](https://github.com/xikaioliver/planning-structs), which is installed with ROSAME
+and imported as `planning_structs`.
+
 ## Quickstart
 
 ```python
 import rosame
-from rosame import Trace
+from planning_structs import Trace
 
 # 1. The domain: types, predicates and action signatures. Preconditions and effects are what we learn,
 #    so the PDDL may leave them empty (any present are ignored for learning).

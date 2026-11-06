@@ -3,7 +3,8 @@ import random
 import torch
 from helpers import fixture_domain, fixture_objects, naive_ground, random_actions, switches_domain, switches_problem
 
-from rosame import Grounder, Instance, ROLES, ROSAME, rosame_loss
+from planning_structs import Instance
+from rosame import Grounder, ROLES, ROSAME, rosame_loss
 from rosame.io import read_pddl_domain
 
 
