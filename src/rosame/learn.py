@@ -13,6 +13,7 @@ training, e.g. to train a perception model jointly.
 """
 from __future__ import annotations
 
+import numbers
 import time
 import warnings
 from collections import Counter
@@ -21,7 +22,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from rosame.grounding import GroundedBatch, Grounder
+from rosame.grounding import GroundedBatch, Grounder, _check_unique
 from rosame.losses import ROSAMELoss
 from rosame.model import ROSAME
 from planning_structs.action_model import ActionModel
@@ -45,19 +46,43 @@ class LearnResult:
         return self.model.to_pddl(**kwargs)
 
 
-def prepare_traces(grounder: Grounder, traces: Sequence[Trace], on_unknown: str = "warn"):
+def _vector_states(states) -> Optional[torch.Tensor]:
+    """States as a float tensor [T + 1, P] if they are given as vectors (a tensor, an array, or a list
+    of numeric vectors), otherwise None (atoms or {atom: probability} per state)."""
+    if isinstance(states, torch.Tensor):
+        return states.float()
+    if hasattr(states, "__array__"):
+        return torch.as_tensor(states).float()
+    items = list(states)
+    if items and all(isinstance(x, torch.Tensor) for x in items):
+        return torch.stack([x.float() for x in items])
+    numeric = lambda v: isinstance(v, numbers.Real) and not isinstance(v, bool)
+    if items and all(isinstance(x, (list, tuple)) and len(x) > 0 and all(numeric(v) for v in x) for x in items):
+        return torch.tensor(items, dtype=torch.float)
+    return None
+
+
+def prepare_traces(grounder: Grounder, traces: Sequence[Trace], on_unknown: str = "warn",
+                   missing: str = "error"):
     """Encode states and ground actions. Returns (encoded, stats); each encoded item is
-    (objects, states [T + 1, P], grounded actions with None for ignored steps)."""
+    (objects, states [T + 1, P], grounded actions with None for ignored steps). Vector states follow
+    the trace's `proposition_order` if given, integer actions its `action_order` (see Trace)."""
     encoded, counts = [], Counter()
     unlabelled = repeated = 0
     for k, tr in enumerate(traces):
         objects = [tuple(o) for o in tr.objects]
         pos = {n: i for i, (n, _) in enumerate(objects)}
-        if isinstance(tr.states, torch.Tensor):
-            states = tr.states.float()
+        vectors = _vector_states(tr.states)
+        if vectors is not None and tr.proposition_order is not None:
+            if vectors.dim() != 2:
+                raise ValueError(f"trace {k}: vector states must form a [T + 1, P] array, got shape {tuple(vectors.shape)}")
+            states = grounder.reorderer(objects, tr.proposition_order, missing=missing, on_unknown=on_unknown)(vectors)
+        elif vectors is not None:
+            states = vectors
             P = grounder.propositions(objects).num_props
             if states.dim() != 2 or states.shape[1] != P:
-                raise ValueError(f"trace {k}: states tensor has shape {tuple(states.shape)}, expected [T + 1, {P}]")
+                raise ValueError(f"trace {k}: vector states have shape {tuple(states.shape)}, expected [T + 1, {P}] "
+                                 f"in the package's proposition order (or give proposition_order)")
         else:
             states = torch.stack([grounder.encode_state(objects, s, pos, on_unknown) for s in tr.states])
         if states.shape[0] != len(tr.actions) + 1:
@@ -65,10 +90,25 @@ def prepare_traces(grounder: Grounder, traces: Sequence[Trace], on_unknown: str 
         if states.numel() and (states.min() < 0 or states.max() > 1):
             raise ValueError(f"trace {k}: state values must be probabilities in [0, 1]")
         calls = []
-        for a in tr.actions:
-            g = None if a is None else grounder.ground_action(objects, a, pos)
-            unlabelled += a is None
-            repeated += a is not None and g is None
+        order = tr.action_order
+        if order is not None:
+            _check_unique(order, f"trace {k}: action_order")
+        actions = tr.actions.tolist() if isinstance(tr.actions, torch.Tensor) else tr.actions
+        for a in actions:
+            is_index = isinstance(a, numbers.Integral) and not isinstance(a, bool)
+            if a is None or (is_index and a < 0):
+                calls.append(None)
+                unlabelled += 1
+                continue
+            if is_index and order is not None:
+                if a >= len(order):
+                    raise IndexError(f"trace {k}: action {a} is outside its action_order ({len(order)} actions)")
+                g = grounder.ground_action(objects, order[a], pos)
+            elif is_index:
+                g = grounder.ground_index(objects, int(a))
+            else:
+                g = grounder.ground_action(objects, a, pos)
+            repeated += g is None
             if g is not None:
                 counts[grounder.schemas[g.schema].name] += 1
             calls.append(g)
@@ -105,8 +145,8 @@ def _chunks(encoded, grounder: Grounder, max_elements: int, device) -> List[Tupl
 def learn(domain: Domain, traces: Sequence[Trace], *, loss: Optional[ROSAMELoss] = None, epochs: int = 2000,
           min_epochs: int = 200, patience: int = 200, lr: float = 1e-3, seed: Optional[int] = 0,
           device: str = "cpu", max_elements: int = 4_000_000, model: Optional[ROSAME] = None,
-          model_kwargs: Optional[dict] = None, on_unknown_atom: str = "warn", verbose: bool = False,
-          log_every: int = 100) -> LearnResult:
+          model_kwargs: Optional[dict] = None, on_unknown_atom: str = "warn",
+          missing_propositions: str = "error", verbose: bool = False, log_every: int = 100) -> LearnResult:
     """Train ROSAME on traces with full-batch Adam.
 
     loss           a ROSAMELoss (defaults: prior_weight 0.2, endpoint_weight 1.0, reduction "transition")
@@ -122,11 +162,14 @@ def learn(domain: Domain, traces: Sequence[Trace], *, loss: Optional[ROSAMELoss]
     model_kwargs   arguments for a new ROSAME (network sizes etc.)
     on_unknown_atom
                    atoms with no proposition (e.g. repeated objects): "warn", "ignore" or "raise"
+    missing_propositions
+                   for vector states with a proposition_order that does not name every proposition of
+                   the object set: "error" (default) or "zero" (filled with 0)
     """
     t0 = time.perf_counter()
     loss_fn = loss if loss is not None else ROSAMELoss()
     grounder = Grounder(domain)
-    encoded, stats = prepare_traces(grounder, traces, on_unknown_atom)
+    encoded, stats = prepare_traces(grounder, traces, on_unknown_atom, missing_propositions)
     if stats["used_transitions"] == 0:
         raise ValueError("no usable transitions")
     if stats["schemas_without_data"]:

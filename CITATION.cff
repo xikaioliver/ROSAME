@@ -10,7 +10,7 @@ authors:
   - family-names: "Thiébaux"
     given-names: Sylvie
 repository-code: "https://github.com/xikaioliver/ROSAME"
-version: 0.2.0
+version: 0.3.0
 preferred-citation:
   type: conference-paper
   title: "Neuro-Symbolic Learning of Lifted Action Models from Visual Traces"

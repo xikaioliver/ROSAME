@@ -21,12 +21,17 @@ object types (the object-set *signature*), so tables are cached per signature.
 
 Atoms, actions and states can be given in several forms:
     atom    ("in", ("s1", "r2")) | ("in", "s1", "r2") | "(in s1 r2)" | "in s1 r2" | ("powered",)
-    action  the same forms with an action schema name, an index into Instance(domain, objects).actions,
-            or None for a step to ignore
+    atom    ... or a planning_structs.Proposition
+    action  the same forms with an action schema name, a planning_structs.Action, an integer (an
+            index into Instance(domain, objects).actions, or into a declared action order), or None
+            for a step to ignore
+Data in its own order is handled by Grounder.reorderer (proposition order of vectors) and
+Grounder.action_index_map / collate(..., action_orders=...) (integer actions).
     state   an iterable of true atoms | a dict {atom: probability} | a tensor [P] of probabilities
 """
 from __future__ import annotations
 
+import numbers
 import warnings
 from dataclasses import dataclass, fields
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
@@ -34,7 +39,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 import torch
 
 from planning_structs.domain import ActionSchema, Domain, Predicate
-from planning_structs.instance import Instance
+from planning_structs.instance import Action, Instance, Proposition
 
 Signature = Tuple[str, ...]
 ObjectsLike = Union[Instance, Sequence[Tuple[str, str]]]
@@ -73,7 +78,12 @@ def schema_triple_table(domain: Domain) -> torch.Tensor:
 # ---------------------------------------------------------------------------
 
 def parse_atom(x) -> Atom:
-    """Normalise an atom (or an action call) to (name, (arg, ...))."""
+    """Normalise an atom (or an action call) to (name, (arg, ...)). Also accepts planning_structs
+    Action and Proposition objects, whose objects are then matched by name."""
+    if isinstance(x, Action):
+        return x.action_schema.name, tuple(o.name for o in x.args)
+    if isinstance(x, Proposition):
+        return x.predicate.name, tuple(o.name for o in x.args)
     if isinstance(x, str):
         parts = x.strip().strip("()").split()
         if not parts:
@@ -85,6 +95,20 @@ def parse_atom(x) -> Atom:
     if len(x) == 2 and isinstance(x[1], (tuple, list)):
         return x[0], tuple(x[1])
     return x[0], tuple(x[1:])
+
+
+def _is_index(x) -> bool:
+    return isinstance(x, numbers.Integral) and not isinstance(x, bool)
+
+
+def _check_unique(order: Sequence, what: str) -> List[Atom]:
+    parsed = [parse_atom(a) for a in order]
+    seen: Dict[Atom, int] = {}
+    for i, a in enumerate(parsed):
+        if a in seen:
+            raise ValueError(f"{what} lists {atom_str(a)} twice (positions {seen[a]} and {i})")
+        seen[a] = i
+    return parsed
 
 
 def atom_str(atom: Atom) -> str:
@@ -155,6 +179,48 @@ class GroundedBatch:
     def pin_memory(self) -> "GroundedBatch":
         """Lets DataLoader(pin_memory=True) handle GroundedBatch."""
         return GroundedBatch(*(getattr(self, f.name).pin_memory() for f in fields(self)))
+
+
+class PropositionReorderer:
+    """Reorders the last dimension of tensors between a data's own proposition order and the
+    package's (Instance) order; made by Grounder.reorderer.
+
+        reorder = grounder.reorderer(objects, proposition_order)
+        states = reorder(network_output)      # [..., P_data] -> [..., P], differentiable
+        back = reorder.inverse(states)        # [..., P] -> [..., P_data]
+
+    `index[j]` is the data column holding package proposition j, or P_data where the data does not
+    provide it (filled with `fill_value`)."""
+
+    def __init__(self, index: torch.Tensor, num_data: int, fill_value: float = 0.0):
+        self.index = index
+        self.num_data = num_data
+        self.fill_value = fill_value
+        inverse = torch.full((num_data,), len(index), dtype=torch.long)
+        provided = index < num_data
+        inverse[index[provided]] = torch.arange(len(index))[provided]
+        self.inverse_index = inverse
+
+    @property
+    def num_props(self) -> int:
+        return len(self.index)
+
+    @staticmethod
+    def _gather(x: torch.Tensor, index: torch.Tensor, fill_value: float) -> torch.Tensor:
+        padded = torch.cat([x, x.new_full((*x.shape[:-1], 1), fill_value)], dim=-1)
+        return padded.index_select(-1, index.to(x.device))
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        if x.shape[-1] != self.num_data:
+            raise ValueError(f"expected {self.num_data} entries in the last dimension (the proposition order), "
+                             f"got {x.shape[-1]}")
+        return self._gather(x, self.index, self.fill_value)
+
+    def inverse(self, y: torch.Tensor) -> torch.Tensor:
+        """Back to the data's order; data entries with no proposition in this object set get fill_value."""
+        if y.shape[-1] != self.num_props:
+            raise ValueError(f"expected {self.num_props} entries in the last dimension, got {y.shape[-1]}")
+        return self._gather(y, self.inverse_index, self.fill_value)
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +322,70 @@ class Grounder:
             raise ValueError(f"{atom_str((name, args))} is not a grounded action of this object set")
         return inst.actions.index(act)
 
+    def ground_index(self, objects: ObjectsLike, index: int) -> GroundedAction:
+        """The action at `index` in Instance(domain, objects).actions, grounded."""
+        schema, props, slot_mask = self._dense_table(objects)
+        if not 0 <= index < len(schema):
+            raise IndexError(f"action index {index} is outside the {len(schema)} grounded actions")
+        k = int(slot_mask[index].sum())
+        return GroundedAction(int(schema[index]), tuple(props[index, :k].tolist()))
+
+    def action_index_map(self, objects: ObjectsLike, action_order: Sequence) -> torch.Tensor:
+        """For data whose integer actions index its own list `action_order`: a LongTensor mapping
+        each of those indices to the index in Instance(domain, objects).actions, or -1 for actions
+        that repeat an object (which ROSAME ignores). Duplicates and unknown actions are errors."""
+        out = []
+        for k, (name, args) in enumerate(_check_unique(action_order, "action_order")):
+            if len(set(args)) < len(args):
+                out.append(-1)
+                continue
+            try:
+                out.append(self.action_index(objects, (name, args)))
+            except ValueError as e:
+                raise ValueError(f"action_order[{k}] {atom_str((name, args))}: {e}") from None
+        return torch.tensor(out, dtype=torch.long)
+
+    def reorderer(self, objects: ObjectsLike, proposition_order: Sequence, *, missing: str = "error",
+                  on_unknown: str = "warn") -> PropositionReorderer:
+        """A PropositionReorderer from data whose vector entries follow `proposition_order` (atoms in
+        any accepted form, or Proposition objects) to this object set's proposition order.
+
+        missing     propositions of the object set that the order does not name: "error" (default)
+                    or "zero" (filled with 0)
+        on_unknown  atoms in the order with no proposition here (unknown names, wrong types, repeated
+                    objects): "warn" (default), "ignore" or "raise"; their entries are dropped
+        Duplicated atoms are always an error."""
+        if missing not in ("error", "zero"):
+            raise ValueError("missing must be 'error' or 'zero'")
+        tab = self.propositions(objects)
+        names = self._names(objects)
+        pos = {n: i for i, n in enumerate(names)}
+        index = torch.full((tab.num_props,), len(proposition_order), dtype=torch.long)
+        found, unknown = 0, []
+        for i, (name, args) in enumerate(_check_unique(proposition_order, "proposition_order")):
+            j = tab.index.get((self._pred_idx.get(name, -1), tuple(pos.get(o, -1) for o in args)))
+            if j is None:
+                unknown.append(atom_str((name, args)))
+                continue
+            index[j] = i
+            found += 1
+        if unknown:
+            msg = (f"{len(unknown)} atom(s) in proposition_order have no proposition in this object set, "
+                   f"e.g. {unknown[0]} (repeated objects, unknown names or wrong types); their entries are dropped")
+            if on_unknown == "raise":
+                raise ValueError(msg)
+            if on_unknown == "warn":
+                warnings.warn(msg, stacklevel=2)
+        if found < tab.num_props and missing == "error":
+            inst = self.instance(objects)
+            canon = {o: names[i] for i, o in enumerate(inst.objects)}
+            j = int(torch.nonzero(index == len(proposition_order))[0])
+            p = inst.propositions[j]
+            example = atom_str((p.predicate.name, tuple(canon[o] for o in p.args)))
+            raise ValueError(f"{tab.num_props - found} proposition(s) of this object set are not in "
+                             f"proposition_order, e.g. {example}; pass missing='zero' to fill them with 0")
+        return PropositionReorderer(index, len(proposition_order))
+
     def _dense_table(self, objects: ObjectsLike):
         """All grounded actions of an object set (needs Instance.actions; small domains only)."""
         sig = self.signature(objects)
@@ -316,10 +446,12 @@ class Grounder:
 
     # ----- batching -----
 
-    def collate(self, objects_list: Sequence[ObjectsLike], actions_list: Sequence[Sequence]) -> GroundedBatch:
+    def collate(self, objects_list: Sequence[ObjectsLike], actions_list: Sequence[Sequence],
+                action_orders: Optional[Sequence[Optional[Sequence]]] = None) -> GroundedBatch:
         """One GroundedBatch from one action sequence per trace. Each action is an action call
-        (see module docstring), a GroundedAction, an index into Instance.actions, or None (or a
-        negative index) for a step to mask. Sequences may differ in length."""
+        (see module docstring), an Action object, a GroundedAction, an integer, or None (or a
+        negative integer) for a step to mask. Integers index `action_orders[b]` when given for that
+        trace, otherwise Instance(domain, objects).actions. Sequences may differ in length."""
         B = len(objects_list)
         T = max([len(a) for a in actions_list] + [0])
         schema = torch.full((B, T), self.pad_schema, dtype=torch.long)
@@ -328,12 +460,19 @@ class Grounder:
         step_mask = torch.zeros(B, T, dtype=torch.bool)
         for b, (objects, actions) in enumerate(zip(objects_list, actions_list)):
             pos = {n: i for i, n in enumerate(self._names(objects))}
+            order = action_orders[b] if action_orders is not None else None
+            if order is not None:
+                _check_unique(order, "action_order")
             if isinstance(actions, torch.Tensor):
                 actions = actions.tolist()
             for t, act in enumerate(actions):
-                if act is None or (isinstance(act, int) and act < 0):
+                if act is None or (_is_index(act) and act < 0):
                     continue
-                if isinstance(act, int):
+                if _is_index(act) and order is not None:
+                    if act >= len(order):
+                        raise IndexError(f"trace {b}: action {act} is outside its action_order ({len(order)} actions)")
+                    act = order[act]
+                if _is_index(act):
                     dense = self._dense_table(objects)
                     if act >= len(dense[0]):
                         raise IndexError(f"trace {b}: action index {act} >= {len(dense[0])} grounded actions")

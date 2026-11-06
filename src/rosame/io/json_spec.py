@@ -20,6 +20,8 @@ Traces, one JSON object per line (read_traces_jsonl / write_traces_jsonl):
      "actions": ["(move r1 r2)", ...]}
 
 A state is a list of true atoms or an object {atom: probability}; an action may be null (unknown).
+Optionally, "proposition_order" names the entries of states given as vectors, and "action_order" the
+actions that integer actions refer to (see planning_structs.Trace).
 
 Learned model (write_action_model_json / read_action_model_json): per action schema, its
 parameter types and its precondition / add / delete literals as [predicate, [parameter positions]].
@@ -114,30 +116,42 @@ def read_traces_jsonl(path: Source):
         d = json.loads(line)
         try:
             traces.append(Trace(objects=[tuple(o) if isinstance(o, list) else (o["name"], o["type"]) for o in d["objects"]],
-                                states=d["states"], actions=d["actions"]))
+                                states=d["states"], actions=d["actions"],
+                                proposition_order=d.get("proposition_order"), action_order=d.get("action_order")))
         except KeyError as e:
             raise ValueError(f"line {k + 1}: missing key {e.args[0]!r}") from None
     return traces
 
 
 def write_traces_jsonl(traces, path: Source, domain: Optional[Domain] = None) -> None:
-    """Write traces as JSON lines. Tensor states need `domain` (to name the propositions) and are
-    written as {atom: probability} for their non-zero entries."""
+    """Write traces as JSON lines. Vector states are written as vectors when the trace has a
+    proposition_order; otherwise they need `domain` (to name the propositions) and are written as
+    {atom: probability} for their non-zero entries. Integer actions and action_order are kept."""
     from rosame.grounding import Grounder, atom_str, parse_atom
+    from rosame.learn import _vector_states
     grounder = Grounder(domain) if domain is not None else None
+    name = lambda a: atom_str(parse_atom(a))
     with open(path, "w") as f:
         for tr in traces:
-            states = tr.states
-            if isinstance(states, torch.Tensor):
+            record = {"objects": [list(o) for o in tr.objects]}
+            vectors = _vector_states(tr.states)
+            if vectors is not None and tr.proposition_order is not None:
+                record["states"] = [[round(float(v), 6) for v in s] for s in vectors.tolist()]
+                record["proposition_order"] = [name(a) for a in tr.proposition_order]
+            elif vectors is not None:
                 if grounder is None:
-                    raise ValueError("tensor states need the domain to be written")
+                    raise ValueError("vector states without a proposition_order need the domain to be written")
                 inst = grounder.instance(tr.objects)
                 names = [n for n, _ in tr.objects]
                 pos = {o: i for i, o in enumerate(inst.objects)}
                 keys = [atom_str((p.predicate.name, tuple(names[pos[o]] for o in p.args))) for p in inst.propositions]
-                states = [{keys[j]: round(float(v), 6) for j, v in enumerate(s.tolist()) if v} for s in states]
+                record["states"] = [{keys[j]: round(float(v), 6) for j, v in enumerate(s) if v} for s in vectors.tolist()]
             else:
-                states = [{atom_str(parse_atom(a)): float(v) for a, v in s.items()} if isinstance(s, dict)
-                          else [atom_str(parse_atom(a)) for a in s] for s in states]
-            actions = [None if a is None else atom_str(parse_atom(a)) for a in tr.actions]
-            f.write(json.dumps({"objects": [list(o) for o in tr.objects], "states": states, "actions": actions}) + "\n")
+                record["states"] = [{name(a): float(v) for a, v in s.items()} if isinstance(s, dict)
+                                    else [name(a) for a in s] for s in tr.states]
+            actions = tr.actions.tolist() if isinstance(tr.actions, torch.Tensor) else tr.actions
+            record["actions"] = [a if a is None or (isinstance(a, int) and not isinstance(a, bool)) else name(a)
+                                 for a in actions]
+            if tr.action_order is not None:
+                record["action_order"] = [name(a) for a in tr.action_order]
+            f.write(json.dumps(record) + "\n")
